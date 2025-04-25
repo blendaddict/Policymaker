@@ -6,8 +6,8 @@ game_state = GameState()
 
 @app.get("/initialize")
 def initialize(num: int):
-    blobs = game_state.generate_blobs(num)
-    return {"status": "started", "blobs": blobs}
+    game_state.intialize(num)
+    return {"status": "game initialized", "num_blobs": num}
 
 #run iteration
 @app.get("/run_iteration")

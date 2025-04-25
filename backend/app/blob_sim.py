@@ -1,15 +1,16 @@
 import openai
-from config import settings
-from random_stats import generate_random_blobs
+from app.config import settings
+from app.random_stats import generate_random_blobs
 
 openai.api_key = settings.openai_api_key
 
-def ask_openai(prompt: str):
+def ask_openai(messages: list):
     response = openai.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages
     )
-    return response.choices[0]
+    # .choices[0].message.content is the assistant’s reply text
+    return response.choices[0].message.content
 
 class Blob:
     def __init__(self, blob_id, properties):
@@ -57,6 +58,12 @@ class GameState:
         self.current_blob_id = 0
         self.generate_blobs(num_blobs)
         self.message_history.append(self.get_starting_message(num_blobs))
+        #append blob properties to message history in one string
+        blob_str = self.get_blobs_to_string()
+        self.message_history.append({
+            "role": "user",
+            "content": blob_str
+        })
 
     def run_iteration(self):
         #send message to openai
@@ -66,7 +73,7 @@ class GameState:
             "role": "assistant",
             "content": resp
         })
-
+        return resp
 
 if __name__ == "__main__":
     game_state = GameState()
