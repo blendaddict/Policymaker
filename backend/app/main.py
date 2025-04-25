@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from app.config import settings
 from app.blob_sim import GameState
 
 app = FastAPI()
@@ -13,7 +12,10 @@ def initialize(num: int):
 #run iteration
 @app.get("/run_iteration")
 def run_iteration():
-    pass
+    #send message to openai
+    resp = game_state.run_iteration()
+    #add response to message history
+    return {"status": "iteration completed", "response": resp}
 
 #policy proposition
 
