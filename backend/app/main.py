@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.config import settings
 from app.blob_sim import GameState
 
 app = FastAPI()
