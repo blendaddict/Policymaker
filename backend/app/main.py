@@ -1,10 +1,10 @@
-
 from fastapi import FastAPI
-from app.tasks import process_blob
+from app.blob_sim import GameState
 
 app = FastAPI()
+game_state = GameState()
 
-@app.post("/run_blob/")
-def run_blob(blob_id: int, prompt: str):
-    process_blob.delay(blob_id, prompt)
-    return {"status": "started", "blob_id": blob_id}
+@app.post("/initialize")
+def initialize(num: int):
+    blobs = game_state.generate_blobs(num)
+    return {"status": "started", "blobs": blobs}

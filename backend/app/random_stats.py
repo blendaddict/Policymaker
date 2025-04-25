@@ -1,6 +1,6 @@
 import random
 
-def generate_random_data_with_weights(num_samples=100):
+def generate_random_blobs(num_samples=100):
     data = []
 
     ages = ['18 to 24', '25 to 34', '35 to 44', '45 to 54', '55 to 64', '65 to 74', '75 or more']

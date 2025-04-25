@@ -1,5 +1,4 @@
-
-from app.tasks import celery_app
+from app.tasks import process_blob
 
 if __name__ == "__main__":
-    celery_app.worker_main()
+    pass
