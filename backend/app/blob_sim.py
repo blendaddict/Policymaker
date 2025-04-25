@@ -11,6 +11,14 @@ def ask_openai(prompt: str):
     )
     return response['choices'][0]['message']['content']
 
+class Blob:
+    def __init__(self, blob_id, properties):
+        self.blob_id = blob_id
+        self.properties = properties
+        
+    def __repr__(self):
+        return f"Blob(id={self.blob_id}, data={self.data})"
+
 class GameState:
     def __init__(self):
         self.blobs = {}
