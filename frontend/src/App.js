@@ -23,8 +23,8 @@ function App() {
         <ambientLight intensity={0.3} />
         <directionalLight position={[2, 5, 2]} color={color} />
         <Platform scale={[1, 1, 1]} />
-        <Blob color="hotpink" initialX={2} />
-        <Blob color="cyan" initialX={2} />
+        <Blob color="hotpink" initialX={-1} />
+        <Blob color="cyan" initialX={1} />
         {/* <Blob color="lime" initialX={2} /> */}
 
         <OrbitControls 
