@@ -185,8 +185,6 @@ function App() {
             scale={[0.2, 0.25, 0.2]}
             rotation={[0, -Math.PI / 2, 0]}
           />
-           <Blob ref={blobRef1} color="hotpink" initialX={2} showStory={(story)=>setStoryPopUp(story)} story="I'm a unicorn that hates tariffs" />
-        <Blob ref={blobRef2} color="cyan" initialX={2}  showStory={(story)=>setStoryPopUp(story)} story="I'm a baller that loves tariffs" />
           {/* <Blob color="lime" initialX={2} /> */}
 
           <OrbitControls
@@ -237,7 +235,12 @@ function App() {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton>  <HistoryEduIcon /></IconButton>
+                  <IconButton onClick={() => {
+                    for (let i = 0; i < numBlobs; i++) {
+                      handleMoveBlob(i);
+                    }
+                  }
+                  }>  <HistoryEduIcon /></IconButton>
                 </InputAdornment>
               ),
             }}
@@ -252,6 +255,7 @@ function App() {
         <button onClick={() => initialize().then(r => setWorld(r))}><h1>Initialize</h1></button>
       </div>
       <StoryPopup open={popupOpen} onClose={() => setPopupOpen(false)} story={story} />
+    </div>
     </div>
   );
 }
