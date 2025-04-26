@@ -50,12 +50,12 @@ class BlobImageGenerator:
             
             # Request description from OpenAI Vision API
             response = client.chat.completions.create(
-                model="gpt-4-vision-preview",  # or "gpt-4o" if available
+                model="gpt-4o",  # or "gpt-4o" if available
                 messages=[
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": "Describe this blob character in detail, focusing on its appearance, shape, colors, facial features, and any unique characteristics. Keep the description under 200 words and focus on visual elements only."},
+                            {"type": "text", "text": "Describe this blob character in detail, focusing on its appearance, shape, colors, facial features, and any unique characteristics. Keep the description under 20 words and focus on visual elements only."},
                             {
                                 "type": "image_url",
                                 "image_url": {
@@ -121,7 +121,7 @@ class BlobImageGenerator:
                     prompt=prompt,
                     n=n,
                     size=size,
-                    quality="hd",  # Higher quality images
+                    #quality="hd",  # Higher quality images
                     style="vivid"  # More colorful and vibrant
                 )
                 return [img.url for img in resp.data]
