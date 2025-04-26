@@ -22,8 +22,8 @@ function App() {
       <Canvas camera={{ position: [0, 5, 10], fov: 50 }} style={{ width: "60vw", height: "60vh", overflow: "hidden" }}>
         <ambientLight intensity={0.3} />
         <directionalLight position={[2, 5, 2]} color={color} />
-        <Platform color="green" scale={[1, 1, 1]} position={[0,0,-5]} />
-        <Platform color="green" scale={[2, 1, 2]} />
+        <Platform color="gray" scale={[1, 1, 1]} position={[0,0,-3.2]} />
+        <Platform color="#32CD32" scale={[2, 1, 2]} />
         <Blob color="hotpink" initialX={2} />
         <Blob color="cyan" initialX={2} />
         {/* <Blob color="lime" initialX={2} /> */}
@@ -38,7 +38,7 @@ function App() {
       </div>
       <div style={{"display":"flex", "flex-direction":"column", "align-items":"center"}}>
       <button onClick={handleClick}>
-        <h1>Get a new baby</h1>
+        <h1>Do something</h1>
       </button>
         <h1>yee:</h1>
       </div>

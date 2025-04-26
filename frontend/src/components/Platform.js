@@ -7,8 +7,15 @@ import { animated, useSpring } from '@react-spring/three'
 export function Platform(props) {
     const obj = useLoader(OBJLoader, '/models/platform.obj');
     const ref = useRef();
-    const cloned = obj.clone()
+    let geometry = null;
+    obj.traverse((child) => {
+      if (child.isMesh && !geometry) {
+        geometry = child.geometry.clone();
+      }
+    })
+  
+    const material = new THREE.MeshStandardMaterial({color: props.color});
 
-    return <animated.primitive object={cloned} ref={ref} {...props} />;
+    return <animated.mesh geometry={geometry} ref={ref} material={material} {...props} />;
   }
   
