@@ -1,4 +1,5 @@
 export async function initialize() {
+    console.log("Started")
     const response = await fetch('http://127.0.0.1:8000/initialize', {
       method: 'POST',
       headers: {
@@ -10,8 +11,9 @@ export async function initialize() {
         "num_societies": 3
       })
     });
-
+  
     const data = await response.json();
+    console.log("Done")
     return data;
 }
 

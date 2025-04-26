@@ -6,12 +6,13 @@ import { animated, useSpring } from '@react-spring/three';
 
 export const floorLevel = 0.22 // 0.148310;
 
-const Blob = forwardRef(({ color = "white", initialX = 0, showStory = ()=>{}, story="no story"}, ref) => {
+
+const Blob = forwardRef(({ color = "white", initialX = 0, initialY = 0, showStory = ()=>{}, story="no story"}, ref) => {
   const obj = useLoader(OBJLoader, '/models/blob.obj');  // Load the .obj model
   const meshRef = useRef();
-  const [targetPosition, setTargetPosition] = useState([initialX, floorLevel, 0]);
+  const [targetPosition, setTargetPosition] = useState([initialX, floorLevel, initialY]);
   const [startTime, setStartTime] = useState(0);
-  const [currentPosition, setCurrentPosition] = useState([initialX, floorLevel, 0]); // Track current position
+  const [currentPosition, setCurrentPosition] = useState([initialX, floorLevel, initialY]); // Track current position
   const [hovered, setHover] = useState(false)
   const [active, setActive] = useState(false)
 

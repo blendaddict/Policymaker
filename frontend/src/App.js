@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef} from "react";
-import { Canvas } from "@react-three/fiber";
+import { useState, useEffect, useRef } from 'react';
 import _ from "underscore";
-import { Blob } from "./components/Blob";
-import { Platform } from "./components/Platform";
-import { OrbitControls, Html, Text } from '@react-three/drei'
-import { ImportedMesh } from "./components/ImportedMesh";
+import { Canvas } from '@react-three/fiber';
+import { Blob, floorLevel } from './components/Blob';
+import { Platform } from './components/Platform';
+import { OrbitControls, Html, Text } from '@react-three/drei';
+import { ImportedMesh } from './components/ImportedMesh';
+import { initialize } from './api';
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -20,16 +21,6 @@ const metrics = {
   happiness: 40,
   extremism: 20,
 };
-
-// function LogCamera() {
-//   const { camera } = useThree()
-
-//   useFrame(() => {
-//     console.log('camera.matrixWorld:', camera.matrixWorld.elements)
-//   })
-
-//   return null
-// }
 
 function HeadlineTicker({ headlines }) {
   const tickerRef = useRef();
@@ -78,17 +69,31 @@ function HeadlineTicker({ headlines }) {
   );
 }
 
-
-
-
 function App() {
+  // const [numBlobs, setNumBlobs] = useState(0);
+  const blobRefs = useRef([]);
+  const [world, setWorld] = useState({})
+  const numBlobs = world.blobs?.length
+  
+  const headlines = [
+    "Breaking: Blobtopia reaches 40% happiness!",
+    "New Policy Proposed: Less Trash!",
+    "Cyan Blob Moves East!",
+    "Hotpink Blob Dances!",
+    "City Expansion Underway...",
+    "Pollution Levels Drop by 5%",
+  ];
+
+  // Function to generate random target position (x, y, z)
+  const generateRandomPosition = () => {
+    return [Math.random() * 4.0 - 2.0, floorLevel, Math.random() * 4.0 - 2.0];
+  };
+  
   const [gameStarted, setGameStarted] = useState(false)
   const [color, setColor] = useState("white");
   const [goal, setGoal] = useState("");
   const [goalReached, setGoalReached] = useState(50);
   const [policy, setPolicy] = useState("")
-  const blobRef1 = useRef();
-  const blobRef2 = useRef();
   const [story, setStory] = useState("")
   const [popupOpen, setPopupOpen] = useState(false);
   const [headlines, setHeadlines] = useState([])
@@ -98,18 +103,10 @@ function App() {
     setPopupOpen(true);
   }
 
-  // Function to generate random target position (x, y, z)
-  const generateRandomPosition = () => {
-    return [Math.random() * 5 - 2.5, .22, Math.random() * 5 - 2.5]; // Random x and z between -2.5 and 2.5, with y=0
-  };
-
-
-
-  
-  // Function to move a specific blob to a random position
-  const handleMoveBlob = (blobRef) => {
+  // Function to move a specific blob to a random position by its index
+  const handleMoveBlob = (index) => {
     const randomPosition = generateRandomPosition();
-    blobRef.current.moveToPosition(randomPosition);  // Trigger move on the specific blob
+    blobRefs.current[index].moveToPosition(randomPosition);  // Trigger move on the specific blob
   };
   
   useEffect(() => {
@@ -189,8 +186,6 @@ function App() {
             scale={[0.2, 0.25, 0.2]}
             rotation={[0, -Math.PI / 2, 0]}
           />
-           <Blob ref={blobRef1} color="hotpink" initialX={2} showStory={(story)=>setStoryPopUp(story)} story="I'm a unicorn that hates tariffs" />
-           <Blob ref={blobRef2} color="cyan" initialX={2}  showStory={(story)=>setStoryPopUp(story)} story="I'm a baller that loves tariffs" />
           {/* <Blob color="lime" initialX={2} /> */}
 
           <OrbitControls
@@ -199,9 +194,21 @@ function App() {
             maxAzimuthAngle={Math.PI / 6} // 30 deg
             minAzimuthAngle={-Math.PI / 6} // -30 deg
           />
-        </Canvas> : <div style={{display:"flex", justifyContent:"center", alignItems:"center", height:"65vh" }}> <Button variant="contained" color="white" onClick={()=>{setGameStarted(true)}}>Start Game</Button> </div> }
-       
-        <HeadlineTicker headlines={ Array.from({ length: 100 })
+
+          {/* Dynamically render blobs */}
+          {Array.from({ length: numBlobs }).map((_, index) => (
+            <Blob
+              key={index}
+              ref={(el) => (blobRefs.current[index] = el)} // Dynamically assign refs
+              color={index % 2 === 0 ? 'hotpink' : 'cyan'}
+              initialX={Math.random() * 4.0 - 2.0}
+              initialY={Math.random() * 4.0 - 2.0}
+            />
+          ))}
+
+          <OrbitControls maxPolarAngle={Math.PI / 2 + Math.PI / 9} minPolarAngle={0} maxAzimuthAngle={Math.PI / 6} minAzimuthAngle={-Math.PI / 6} />
+        </Canvas>
+<HeadlineTicker headlines={ Array.from({ length: 100 })
   .map(() => headlines)
   .flat()} />
         <div
@@ -229,22 +236,27 @@ function App() {
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton>  <HistoryEduIcon /></IconButton>
+                  <IconButton onClick={() => {
+                    for (let i = 0; i < numBlobs; i++) {
+                      handleMoveBlob(i);
+                    }
+                  }
+                  }>  <HistoryEduIcon /></IconButton>
                 </InputAdornment>
               ),
             }}
           />
         </div>
-        {/* <div style={{"display":"flex", direction:"row"}}>
-          <button onClick={() => handleMoveBlob(blobRef1)}>
-          <h1>Move Hotpink Blob</h1>
-        </button>
-        <button onClick={() => handleMoveBlob(blobRef2)}>
-          <h1>Move Cyan Blob</h1>
-        </button>
-        </div> */}
+      <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}
+      >
+        <button onClick={() => initialize().then(r => setWorld(r))}><h1>Initialize</h1></button>
       </div>
       <StoryPopup open={popupOpen} onClose={() => setPopupOpen(false)} story={story} />
+    </div>
     </div>
   );
 }
