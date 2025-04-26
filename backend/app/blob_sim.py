@@ -4,8 +4,9 @@ import json
 import time
 import random
 from typing import List, Dict, Any, Optional, Tuple
-from config import settings
-from random_stats import generate_random_blobs
+from app.config import settings
+from app.random_stats import generate_random_blobs
+from app.blob_image_generator import BlobImageGenerator
 
 openai.api_key = settings.openai_api_key
 
@@ -27,7 +28,7 @@ class OpenAIClient:
         while attempt < max_retries:
             try:
                 response = openai.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     messages=messages,
                     temperature=temperature,           # Controls randomness (0-1)
                     top_p=top_p,                       # Nucleus sampling parameter
@@ -41,34 +42,6 @@ class OpenAIClient:
                     raise Exception(f"Failed to get response from OpenAI after {max_retries} attempts: {str(e)}")
                 print(f"API error: {str(e)}. Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
-    
-    @staticmethod
-    def generate_image(prompt: str, n: int = 1, size: str = "1024x1024", 
-                       max_retries: int = 3, retry_delay: int = 2) -> list[str]:
-        """
-        Use OpenAI's Image API to generate images with error handling
-        """
-        # Ensure prompt isn't too long for the API
-        if len(prompt) > 1000:
-            prompt = prompt[:997] + "..."
-            
-        attempt = 0
-        while attempt < max_retries:
-            try:
-                resp = openai.images.generate(
-                    prompt=prompt,
-                    n=n,
-                    size=size
-                )
-                return [img.url for img in resp.data]
-            except Exception as e:
-                attempt += 1
-                if attempt >= max_retries:
-                    print(f"Failed to generate image after {max_retries} attempts: {str(e)}")
-                    return []
-                print(f"Image API error: {str(e)}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-
 
 class Society:
     """Represents a society/faction that blobs can belong to"""
@@ -134,33 +107,6 @@ class Blob:
             "description": description
         })
     
-    def update_relationship(self, other_blob_id: int, change: float):
-        """Update relationship score with another blob"""
-        current = self.relationships.get(other_blob_id, 0.0)
-        new_value = max(-1.0, min(1.0, current + change))  # Clamp between -1.0 and 1.0
-        self.relationships[other_blob_id] = new_value
-    
-    def get_relationship_summary(self) -> str:
-        """Get a summary of this blob's relationships"""
-        if not self.relationships:
-            return f"{self.name} has no established relationships yet."
-        
-        result = []
-        for other_id, score in self.relationships.items():
-            if score > 0.7:
-                status = "close friend"
-            elif score > 0.3:
-                status = "friend"
-            elif score > -0.3:
-                status = "acquaintance"
-            elif score > -0.7:
-                status = "dislikes"
-            else:
-                status = "enemy"
-            result.append(f"Relationship with Blob {other_id}: {status} ({score:.1f})")
-        
-        return "\n".join(result)
-    
     def join_society(self, society_id: int):
         """Join a society"""
         self.society_id = society_id
@@ -202,6 +148,10 @@ class EnhancedGameState:
         self.current_blob_id = 0
         self.current_society_id = 0
         self.current_year = 0
+
+        self.blob_image_generator = BlobImageGenerator(
+            api_key=settings.openai_api_key
+        )
     
     def get_enhanced_system_prompt(self, num_blobs: int) -> Dict[str, str]:
         """
@@ -348,39 +298,6 @@ class EnhancedGameState:
         
         return personality, traits
 
-    def generate_blob_images(self):
-        """Generate visual representations for each blob"""
-        for blob in self.blobs:
-            traits_str = ", ".join(blob.traits) if blob.traits else "mysterious personality"
-            
-            prompt = (
-                f"A cute fantasy blob creature named {blob.name} with {traits_str}. "
-                f"Characteristics: {blob.prompt_description()}. "
-                f"Personality: {blob.personality}. "
-                f"Make it colorful, gelatinous, with simple facial features. No text or labels."
-            )
-            
-            urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
-            if urls:
-                blob.image_url = urls[0]
-                print(f"Generated image for {blob.name}: {blob.image_url}")
-    
-    def generate_society_images(self):
-        """Generate visual representations for each society"""
-        for society in self.societies:
-            values_str = ", ".join(society.values)
-            
-            prompt = (
-                f"A symbolic representation of 'Society-{society.society_id}', a society of blob creatures. "
-                f"Their ideology is {society.ideology} and they value {values_str}. "
-                f"Create an abstract emblem or flag that represents their identity. No text."
-            )
-            
-            urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
-            if urls:
-                society.image_url = urls[0]
-                print(f"Generated image for Society-{society.society_id}: {society.image_url}")
-    
     def assign_blobs_to_societies(self):
         """Assign blobs to societies based on compatibility"""
         if not self.societies or not self.blobs:
@@ -441,10 +358,6 @@ class EnhancedGameState:
             )
         })
         
-        # Generate images after initialization
-        #self.generate_blob_images()
-        #self.generate_society_images()
-    
     def summarize_world_history(self, max_events: int = 3) -> str:
         """Create a summary of key historical events to maintain context"""
         if not self.world_events:
@@ -507,7 +420,7 @@ class EnhancedGameState:
             print(f"Error parsing event: {str(e)}")
             return None
     
-    def run_iteration(self, temperature: float = 0.7) -> WorldEvent:
+    def run_iteration(self, temperature: float = 0.7, create_image=True) -> WorldEvent:
         """
         Run a game iteration with structured output and event parsing
         """
@@ -548,63 +461,55 @@ class EnhancedGameState:
             self.current_year = event.year
             self.world_events.append(event)
             
-            # Update blob relationships based on impacts
-            self.update_relationships_from_event(event)
-            
-            # Generate an image for the event
-            #self.generate_event_image(event)
+            if create_image:
+                # Generate an image for the event using our LLM-driven method
+                image_url = self.generate_event_image(event)
+                
+                # Log the successful image generation
+                if image_url:
+                    print(f"Successfully generated comic-style image for event: {event.headline}")
             
             return event
         else:
             print("Could not parse a valid event from the response")
             return None
     
-    def update_relationships_from_event(self, event: WorldEvent):
-        """Update blob relationships based on event impacts"""
-        for blob_id, impact in event.impacts.items():
-            impact_lower = impact.lower()
-            
-            # Skip invalid blob IDs
-            blob = next((b for b in self.blobs if b.blob_id == blob_id), None)
-            if not blob:
-                continue
-                
-            # Check if this is a positive or negative impact
-            is_positive = any(word in impact_lower for word in [
-                "friend", "ally", "help", "support", "gift", "happy", "joy", "love"
-            ])
-            is_negative = any(word in impact_lower for word in [
-                "enemy", "fight", "conflict", "anger", "hate", "sad", "hurt", "pain"
-            ])
-            
-            # Look for mentions of other blobs (by name or ID)
-            for other_blob in self.blobs:
-                if other_blob.blob_id == blob_id:
-                    continue
-                
-                if other_blob.name in impact or f"Blob {other_blob.blob_id}" in impact:
-                    # Positive mention improves relationship, negative worsens it
-                    relationship_change = 0.1 if is_positive else -0.1 if is_negative else 0.0
-                    blob.update_relationship(other_blob.blob_id, relationship_change)
-                    other_blob.update_relationship(blob_id, relationship_change)
-                    
-                    # Record this interaction in blob history
-                    interaction_type = "positive" if is_positive else "negative" if is_negative else "neutral"
-                    blob.add_event(event.year, interaction_type, 
-                                  f"Interaction with {other_blob.name}: {impact}")
-    
+    def create_image_prompt(self, event: WorldEvent, previous_event: Optional[WorldEvent]) -> str:
+        """
+        Create a consistent image prompt based on reference blob style
+        """
+        # Use our new generator to create a consistent prompt
+        return self.blob_image_generator.create_event_image_prompt(
+            event_headline=event.headline,
+            event_details=event.details
+        )
+
     def generate_event_image(self, event: WorldEvent):
-        """Generate an illustrative image for the event"""
-        prompt = (
-            f"Illustration of fantasy blob creatures in this scenario: {event.headline}. "
-            f"{event.details}. The blobs are cute, gelatinous creatures with simple faces. "
-            f"Colorful, whimsical style. No text or labels."
+        """
+        Generate a comic-style illustrative image for the event using consistent blob style
+        """
+        # Get previous event for context if it exists
+        previous_event = None
+        current_index = self.world_events.index(event) if event in self.world_events else -1
+        
+        if current_index > 0:
+            previous_event = self.world_events[current_index - 1]
+        
+        # Create prompt for the image description
+        prompt = self.create_image_prompt(event, previous_event)
+        
+        # Generate the image using our blob image generator
+        urls = self.blob_image_generator.generate_image(
+            prompt=prompt, 
+            n=1, 
+            size="1024x1024"
         )
         
-        urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
         if urls:
             event.image_url = urls[0]
-            print(f"Generated image for event: {event.image_url}")
+            print(f"Generated consistent blob-style image for event: {event.image_url}")
+            return event.image_url
+        return None
     
     def policy_proposition(self, proposal: str, temperature: float = 0.7) -> str:
         """Submit a user policy proposition to the simulation"""
@@ -623,8 +528,13 @@ class EnhancedGameState:
         if event:
             self.current_year = event.year
             self.world_events.append(event)
-            self.update_relationships_from_event(event)
-            #self.generate_event_image(event)
+            
+            # Use our LLM-driven image generation method
+            image_url = self.generate_event_image(event)
+            
+            # Log the successful image generation
+            if image_url:
+                print(f"Successfully generated comic-style image for policy event: {event.headline}")
         
         return resp_text
     
@@ -669,6 +579,8 @@ if __name__ == "__main__":
     # Submit a policy proposition
     print("\nSubmitting policy proposition...")
     result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
+    #result = game_state.policy_proposition("Too much trash is piling up in the blob world.")
+    #result = game_state.policy_proposition("The blobs face a disagreemnt over blob hats and are building a huge wall.")
     print(f"Result: {result}...")
     
     # Run another iteration

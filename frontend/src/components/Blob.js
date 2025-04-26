@@ -33,7 +33,7 @@ const Blob = forwardRef(({ color = "white", initialX = 0 }, ref) => {
         await next({ position: [initialX - 2, 0.5, 0] });
       }
     },
-    config: { duration: 2000 },
+    config: { duration: 2000 }
   });
 
   // Expose moveToPosition to parent components to trigger movement
