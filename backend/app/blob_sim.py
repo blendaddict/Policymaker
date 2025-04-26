@@ -476,7 +476,7 @@ class EnhancedGameState:
             print(f"Error parsing event: {str(e)}")
             return None
     
-    def run_iteration(self, temperature: float = 0.7) -> WorldEvent:
+    def run_iteration(self, temperature: float = 0.7, create_image=True) -> WorldEvent:
         """
         Run a game iteration with structured output and event parsing
         """
@@ -519,13 +519,14 @@ class EnhancedGameState:
             
             # Update blob relationships based on impacts
             self.update_relationships_from_event(event)
-            
-            # Generate an image for the event using our LLM-driven method
-            image_url = self.generate_event_image(event)
-            
-            # Log the successful image generation
-            if image_url:
-                print(f"Successfully generated comic-style image for event: {event.headline}")
+
+            if create_image:
+                # Generate an image for the event using our LLM-driven method
+                image_url = self.generate_event_image(event)
+                
+                # Log the successful image generation
+                if image_url:
+                    print(f"Successfully generated comic-style image for event: {event.headline}")
             
             return event
         else:
