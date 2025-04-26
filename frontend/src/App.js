@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef} from "react";
 import { Canvas } from "@react-three/fiber";
 import _ from "underscore";
 import { Blob } from "./components/Blob";
 import { Platform } from "./components/Platform";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Html, Text } from '@react-three/drei'
 import { ImportedMesh } from "./components/ImportedMesh";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -12,8 +12,8 @@ import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import HistoryEduIcon from "@mui/icons-material/HistoryEdu";
 import { IconButton } from '@mui/material';
-import { Text } from '@react-three/drei';
-import { Html } from '@react-three/drei';
+import { useThree,useFrame  } from '@react-three/fiber'
+import { useControls } from '@react-three/drei'
 
 
 const metrics = {
@@ -21,11 +21,93 @@ const metrics = {
   extremism: 20,
 };
 
+function LogCamera() {
+  const { camera } = useThree()
+
+  useFrame(() => {
+    console.log('camera.matrixWorld:', camera.matrixWorld.elements)
+  })
+
+  return null
+}
+
+function HeadlineTicker({ headlines }) {
+  const tickerRef = useRef();
+
+  useEffect(() => {
+    let offset = 0;
+    const speed = 3;
+    const interval = setInterval(() => {
+      if (tickerRef.current) {
+        offset -= speed;
+        tickerRef.current.style.transform = `translateX(${offset}px)`;
+
+        if (Math.abs(offset) >= tickerRef.current.scrollWidth / 2) {
+          offset = 0;
+        }
+      }
+    }, 30);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div style={{
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      width: "100%",
+      background: "black",
+      color: "white",
+      fontSize: "1.2rem",
+      padding: "10px 0",
+      marginTop: "20px",
+      position: "relative"
+    }}>
+      <div
+        ref={tickerRef}
+        style={{ display: "inline-block", paddingLeft: "100%", whiteSpace: "nowrap" }}
+      >
+        {[...headlines, ...headlines].map((headline, idx) => (
+          <span key={idx} style={{ marginRight: "50px" }}>
+            {headline}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const [color, setColor] = useState("white");
   const [goal, setGoal] = useState("Reduce trash in the environment");
   const [goalReached, setGoalReached] = useState(50);
   const [policy, setPolicy] = useState("")
+  const blobRef1 = useRef();
+  const blobRef2 = useRef();
+
+
+  // Function to generate random target position (x, y, z)
+  const generateRandomPosition = () => {
+    return [Math.random() * 5 - 2.5, .22, Math.random() * 5 - 2.5]; // Random x and z between -2.5 and 2.5, with y=0
+  };
+
+
+  const headlines = [
+    "Breaking: Blobtopia reaches 40% happiness!",
+    "New Policy Proposed: Less Trash!",
+    "Cyan Blob Moves East!",
+    "Hotpink Blob Dances!",
+    "City Expansion Underway...",
+    "Pollution Levels Drop by 5%",
+  ];
+  
+  // Function to move a specific blob to a random position
+  const handleMoveBlob = (blobRef) => {
+    const randomPosition = generateRandomPosition();
+    blobRef.current.moveToPosition(randomPosition);  // Trigger move on the specific blob
+  };
+  
   useEffect(() => {
     const timer = setInterval(() => {
       setGoalReached((oldProgress) => {
@@ -59,9 +141,11 @@ function App() {
         </Box>
 
         <Canvas
-          camera={{ position: [0, 5, 10], fov: 50 }}
+          
+          camera={{ position: [-0.0, 7.3156, 7.0145], fov: 50 }}
           style={{ width: "70vw", height: "70vh", overflow: "hidden" }}
         > 
+        <LogCamera/>
           <Html
     position={[-3, 4., -4]}
     style={{
@@ -85,7 +169,7 @@ function App() {
         </div>
       ))}
     </div>
-  </Html>
+        </Html>
 
           <ambientLight intensity={0.3} />
           <directionalLight position={[2, 5, 2]} color={color} />
@@ -102,8 +186,8 @@ function App() {
             scale={[0.2, 0.25, 0.2]}
             rotation={[0, -Math.PI / 2, 0]}
           />
-          <Blob color="hotpink" initialX={2} />
-          <Blob color="cyan" initialX={2} />
+           <Blob ref={blobRef1} color="hotpink" initialX={2} />
+        <Blob ref={blobRef2} color="cyan" initialX={2} />
           {/* <Blob color="lime" initialX={2} /> */}
 
           <OrbitControls
@@ -113,6 +197,9 @@ function App() {
             minAzimuthAngle={-Math.PI / 6} // -30 deg
           />
         </Canvas>
+        <HeadlineTicker headlines={ Array.from({ length: 100 })
+  .map(() => headlines)
+  .flat()} />
         <div
           style={{
             display: "flex",
@@ -143,6 +230,14 @@ function App() {
               ),
             }}
           />
+        </div>
+        <div style={{"display":"flex", direction:"row"}}>
+          <button onClick={() => handleMoveBlob(blobRef1)}>
+          <h1>Move Hotpink Blob</h1>
+        </button>
+        <button onClick={() => handleMoveBlob(blobRef2)}>
+          <h1>Move Cyan Blob</h1>
+        </button>
         </div>
       </div>
     </div>
