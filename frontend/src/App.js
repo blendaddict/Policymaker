@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import _ from "underscore";
 import { Canvas } from "@react-three/fiber";
 import { Blob, floorLevel } from "./components/Blob";
 import { Platform } from "./components/Platform";
-import { OrbitControls, Html, Text } from "@react-three/drei";
+import { OrbitControls, Html } from "@react-three/drei";
 import { ImportedMesh } from "./components/ImportedMesh";
-import { initialize , getWorldMetrics, wait, proposePolicy} from "./api";
+import { Sky} from "@react-three/drei";
+import {
+  initialize,
+  getWorldMetrics,
+  wait,
+  proposePolicy,
+} from "./api";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -13,30 +18,34 @@ import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import HistoryEduIcon from "@mui/icons-material/HistoryEdu";
 import { IconButton } from "@mui/material";
-import { useThree, useFrame } from "@react-three/fiber";
-import { useControls } from "@react-three/drei";
 import StoryPopup from "./components/StoryPopUp";
 
-
+/**
+ * Helper – returns a Map where every blob index (0‒numBlobs-1)
+ * is present. Blobs without a story get the placeholder text.
+ */
+const PLACEHOLDER = "No story yet 🙃";
+const makeBlobStories = (numBlobs, impacts = {}) => {
+  const map = new Map();
+  for (let i = 0; i < numBlobs; i++) {
+    map.set(i, impacts[i] ?? PLACEHOLDER);
+  }
+  return map;
+};
 
 function HeadlineTicker({ headlines }) {
   const tickerRef = useRef();
-
   useEffect(() => {
     let offset = 0;
     const speed = 3;
-    const interval = setInterval(() => {
+    const id = setInterval(() => {
       if (tickerRef.current) {
         offset -= speed;
         tickerRef.current.style.transform = `translateX(${offset}px)`;
-
-        if (Math.abs(offset) >= tickerRef.current.scrollWidth / 2) {
-          offset = 0;
-        }
+        if (Math.abs(offset) >= tickerRef.current.scrollWidth / 2) offset = 0;
       }
     }, 30);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -49,22 +58,16 @@ function HeadlineTicker({ headlines }) {
         color: "white",
         fontSize: "1.2rem",
         padding: "10px 0",
-        // marginTop: "20px",
         marginBottom: "10px",
-        position: "relative",
       }}
     >
       <div
         ref={tickerRef}
-        style={{
-          display: "inline-block",
-          paddingLeft: "100%",
-          whiteSpace: "nowrap",
-        }}
+        style={{ display: "inline-block", paddingLeft: "100%", whiteSpace: "nowrap" }}
       >
-        {[...headlines, ...headlines].map((headline, idx) => (
-          <span key={idx} style={{ marginRight: "50px" }}>
-            {headline}
+        {[...headlines, ...headlines].map((h, i) => (
+          <span key={i} style={{ marginRight: "50px" }}>
+            {h}
           </span>
         ))}
       </div>
@@ -72,92 +75,77 @@ function HeadlineTicker({ headlines }) {
   );
 }
 
-const generateCleanBlobStories = (numBlobs) => {
-  return new Map(
-    Array.from({ length: numBlobs }).map((_, index) => [index, "No story available"])
-  )
-}
-
 function App() {
-  // const [numBlobs, setNumBlobs] = useState(0);
   const blobRefs = useRef([]);
-  const [initiliazeDict, setInitializeDict] = useState({});
- 
-  const numBlobs = initiliazeDict.blobs?.length;
-  const [blobStories, setBlobStories] = useState(generateCleanBlobStories(numBlobs))
-  // Function to generate random target position (x, y, z)
-  const generateRandomPosition = () => {
-    return [Math.random() * 4.0 - 2.0, floorLevel, Math.random() * 4.0 - 2.0];
-  };
+  const [initializeDict, setInitializeDict] = useState({});
+  const numBlobs = initializeDict.blobs?.length || 0;
 
-
-  useEffect(() => {
-    setGoal(initiliazeDict["metrics"])
-  }, [initiliazeDict])
-  
-
+  const [blobStories, setBlobStories] = useState(new Map());
   const [gameStarted, setGameStarted] = useState(false);
-  const [color, setColor] = useState("white");
-  const [goal, setGoal] = useState("Get cleanliness to 80%");
   const [goalReached, setGoalReached] = useState(50);
   const [policy, setPolicy] = useState("");
   const [story, setStory] = useState("");
   const [popupOpen, setPopupOpen] = useState(false);
   const [headlines, setHeadlines] = useState([]);
-  const [metrics, setMetrics] = useState({})
+  const [metrics, setMetrics] = useState({});
 
-  const setStoryPopUp = (story) => {
-    setStory(story);
+  const setStoryPopUp = (s) => {
+    setStory(s);
     setPopupOpen(true);
   };
 
   const handleTimeStepDictionary = (dict) => {
-    setMetrics(dict.metrics)
-    setBlobStories(generateCleanBlobStories(numBlobs))
-    console.log("mydict",dict)
-    setBlobStories(dict.event.impacts)
-    setHeadlines([dict.event.headline, dict.event.headline_metrics, ...dict.event.subheadlines ])
-  }
+    setMetrics(dict.metrics);
+    const impacts = dict.event?.impacts || {};
+    setBlobStories(makeBlobStories(numBlobs, impacts));
+    setHeadlines([
+      dict.event.headline,
+      dict.event.headline_metrics,
+      ...(dict.event.subheadlines || []),
+    ]);
+  };
 
   useEffect(() => {
-    setGoalReached(metrics.environment_cleanliness*100)
-  }, [metrics])
-  
-  // Function to move a specific blob to a random position by its index
-  const handleMoveBlob = (index) => {
-    const randomPosition = generateRandomPosition();
-    blobRefs.current[index].moveToPosition(randomPosition); // Trigger move on the specific blob
-  };
-  
-  const iterationDance = () =>  {
-  for (let i = 0; i < numBlobs; i++) {
-    handleMoveBlob(i);
-  }
-}
+    if (typeof metrics.environment_cleanliness === "number")
+      setGoalReached(metrics.environment_cleanliness * 100);
+  }, [metrics]);
 
- 
+  useEffect(() => {
+    if (numBlobs) setBlobStories(makeBlobStories(numBlobs));
+  }, [numBlobs]);
+
+  const generateRandomPosition = () => [
+    Math.random() * 4.0 - 2.0,
+    floorLevel,
+    Math.random() * 4.0 - 2.0,
+  ];
+  const handleMoveBlob = (i) => {
+    const pos = generateRandomPosition();
+    blobRefs.current[i]?.moveToPosition(pos);
+  };
+  const iterationDance = () => {
+    for (let i = 0; i < numBlobs; i++) handleMoveBlob(i);
+  };
 
   return (
     <div className="App">
-      <div
-        id="canvas-container"
-        style={{
-          display: "flex",
-          "flex-direction": "column",
-          "align-items": "center",
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         <h1>Goal: Get cleanliness to 80%</h1>
-
         <Box sx={{ width: "60%" }}>
           <LinearProgress variant="determinate" value={goalReached} />
         </Box>
+
         {gameStarted ? (
-          <Canvas
-            camera={{ position: [-0.0, 2, 10], fov: 50 }}
-            style={{ width: "100%", height: "65vh", overflow: "hidden" }}
-          >
-            {/* <LogCamera/> */}
+          <Canvas camera={{ position: [-0.0, 2, 10], fov: 50 }} style={{ width: "100%", height: "65vh" }}>
+            <Sky
+              distance={40000}
+              turbidity={2}      // low haze – crisp summer air
+              rayleigh={2}
+              mieCoefficient={0.01}
+              mieDirectionalG={0.8}
+              inclination={0.15} // gentle tilt so sun is slightly off-zenith
+              azimuth={0.2}
+            />
             <Html
               position={[-3, 4, -5]}
               style={{
@@ -168,34 +156,27 @@ function App() {
                 fontFamily: "monospace",
                 fontSize: "14px",
                 pointerEvents: "none",
-                userSelect: "none",
               }}
               transform
-              occlude={true}
+              occlude
+              zIndexRange={[1000, 0]} 
             >
               <div>
-                <div>
-                  <strong>Blobtopia</strong>
-                </div>
-                {Object.entries(metrics).map(([key, value]) => (
-                  <div key={key}>
-                  {(key.charAt(0).toUpperCase() + key.slice(1)).replaceAll("_", " ")}: 
-                  {typeof value === "number"
-                    ? `${Math.floor(value * 100)}%`
-                    : value}
-                </div>
+                <strong>Blobtopia</strong>
+                {Object.entries(metrics).map(([k, v]) => (
+                  <div key={k}>
+                    {k.charAt(0).toUpperCase() + k.slice(1).replaceAll("_", " ")}: {typeof v === "number" ? `${Math.floor(v * 100)}%` : v}
+                  </div>
                 ))}
               </div>
             </Html>
 
             <ambientLight intensity={0.3} />
-            <directionalLight position={[2, 5, 2]} color={color} />
-            <Platform
-              color="gray"
-              scale={[1.2, 1, 1.2]}
-              position={[0, 0, -3.4]}
-            />
+            <directionalLight position={[2, 5, 2]} />
+
             <Platform color="#32CD32" scale={[2, 1, 2]} />
+            <Platform color="gray" scale={[1.2, 1, 1.2]} position={[0, 0, -3.4]} />
+
             <ImportedMesh
               path="models/city_merged.obj"
               mtlPath="models/city_merged.mtl"
@@ -203,27 +184,6 @@ function App() {
               scale={[0.2, 0.25, 0.2]}
               rotation={[0, -Math.PI / 2, 0]}
             />
-            {/* <Blob color="lime" initialX={2} /> */}
-
-            <OrbitControls
-              maxPolarAngle={Math.PI / 2 + Math.PI / 9} // 90 + 20 deg
-              minPolarAngle={0}
-              maxAzimuthAngle={Math.PI / 6} // 30 deg
-              minAzimuthAngle={-Math.PI / 6} // -30 deg
-            />
-
-            {/* Dynamically render blobs */}
-            {Array.from({ length: numBlobs }).map((_, index) => (
-              <Blob
-                key={index}
-                ref={(el) => (blobRefs.current[index] = el)} // Dynamically assign refs
-                color={index % 2 === 0 ? "hotpink" : "cyan"}
-                initialX={Math.random() * 4.0 - 2.0}
-                initialY={Math.random() * 4.0 - 2.0}
-                story={"no story rn"}
-                showStory={setStoryPopUp}
-              />
-            ))}
 
             <OrbitControls
               maxPolarAngle={Math.PI / 2 + Math.PI / 9}
@@ -231,63 +191,67 @@ function App() {
               maxAzimuthAngle={Math.PI / 6}
               minAzimuthAngle={-Math.PI / 6}
             />
+
+            {Array.from({ length: numBlobs }).map((_, i) => (
+              <Blob
+                key={i}
+                ref={(el) => (blobRefs.current[i] = el)}
+                color={i % 2 === 0 ? "hotpink" : "cyan"}
+                initialX={Math.random() * 4.0 - 2.0}
+                initialY={Math.random() * 4.0 - 2.0}
+                story={blobStories.get(i)}
+                showStory={setStoryPopUp}
+              />
+            ))}
           </Canvas>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              height: "65vh",
-            }}
-          >
-            {" "}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "65vh" }}>
             <Button
               variant="contained"
-              color="white"
-              onClick={() => {
-                initialize().then((r) => setInitializeDict(r)); 
-                getWorldMetrics().then((r) =>setMetrics(r));
+              onClick={async () => {
+                const init = await initialize();
+                setInitializeDict(init);
+                const m = await getWorldMetrics();
+                setMetrics(m);
                 setGameStarted(true);
               }}
             >
               Start Game
-            </Button>{" "}
+            </Button>
           </div>
         )}
-        <HeadlineTicker
-          headlines={Array.from({ length: 100 })
-            .map(() => headlines)
-            .flat()}
-        />
-        <div
-          style={{
-            display: "flex",
-            "flex-direction": "row",
-            "align-items": "center",
-            "justify-content": "space-evenly",
-            width: "50%",
-          }}
-        >
-          <Button onClick={()=>{iterationDance(); wait().then((r)=>{handleTimeStepDictionary(r)})}} variant="outlined" style={{ height: "100%" }}>
+
+        <HeadlineTicker headlines={Array(100).fill(headlines).flat()} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-evenly", width: "50%" }}>
+          <Button
+            variant="outlined"
+            onClick={async () => {
+              iterationDance();
+              const r = await wait();
+              handleTimeStepDictionary(r);
+            }}
+          >
             Wait
           </Button>
           <h3>or</h3>
           <TextField
-            value={policy}
-            onChange={(event) => {
-              setPolicy(event.target.value);
-            }}
             label="New Policy"
             variant="outlined"
+            value={policy}
+            onChange={(e) => setPolicy(e.target.value)}
             style={{ width: "40vw" }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
                   <IconButton
-                    onClick={()=>{iterationDance(); proposePolicy(policy).then((r)=>{handleTimeStepDictionary(r)})}} 
+                    onClick={async () => {
+                      iterationDance();
+                      const r = await proposePolicy(policy);
+                      handleTimeStepDictionary(r);
+                      setPolicy("");
+                    }}
                   >
-                    {" "}
                     <HistoryEduIcon />
                   </IconButton>
                 </InputAdornment>
@@ -295,20 +259,8 @@ function App() {
             }}
           />
         </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-          }}
-        >
-          
-        </div>
-        <StoryPopup
-          open={popupOpen}
-          onClose={() => setPopupOpen(false)}
-          story={story}
-        />
+
+        <StoryPopup open={popupOpen} onClose={() => setPopupOpen(false)} story={story} />
       </div>
     </div>
   );
