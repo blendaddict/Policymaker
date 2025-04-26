@@ -29,21 +29,33 @@ class OpenAIClient:
                 presence_penalty: float = 0.0, 
                 frequency_penalty: float = 0.3,
                 max_retries: int = 3,
-                retry_delay: int = 2) -> str:
+                retry_delay: int = 2,
+                return_json: bool = False) -> str:
         """
         Enhanced version of ask_openai with better parameter control and error handling
         """
         attempt = 0
         while attempt < max_retries:
             try:
-                response = openai.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=messages,
-                    temperature=temperature,           # Controls randomness (0-1)
-                    top_p=top_p,                       # Nucleus sampling parameter
-                    presence_penalty=presence_penalty, # Penalize new topics (-2 to 2)
-                    frequency_penalty=frequency_penalty, # Penalize repetition (-2 to 2)
-                )
+                if return_json:
+                    response = openai.chat.completions.create(
+                        model="gpt-4o",
+                        messages=messages,
+                        temperature=temperature,           # Controls randomness (0-1)
+                        top_p=top_p,                       # Nucleus sampling parameter
+                        presence_penalty=presence_penalty, # Penalize new topics (-2 to 2)
+                        frequency_penalty=frequency_penalty, # Penalize repetition (-2 to 2)
+                        response_format={ "type": "json_object" }
+                    )
+                else:
+                    response = openai.chat.completions.create(
+                        model="gpt-4o",
+                        messages=messages,
+                        temperature=temperature,           # Controls randomness (0-1)
+                        top_p=top_p,                       # Nucleus sampling parameter
+                        presence_penalty=presence_penalty, # Penalize new topics (-2 to 2)
+                        frequency_penalty=frequency_penalty, # Penalize repetition (-2 to 2)
+                    )
                 return response.choices[0].message.content
             except Exception as e:
                 attempt += 1
@@ -133,11 +145,11 @@ class WorldMetrics:
     def __init__(self):
         # Initialize all metrics with neutral values (0.5 on a 0-1 scale)
         self.metrics = {
-            "happiness": 0.5,
+            "happiness": 0.2,
             "safety": 0.5,
-            "environment_cleanliness": 0.5,
-            "trust_in_government": 0.5,
-            "health": 0.5,
+            "environment_cleanliness": 0.1,
+            "trust_in_government": 0.3,
+            "health": 0.2,
             "education": 0.5,
             "poverty": 0.5  # Note: higher means MORE poverty (worse)
         }
@@ -280,15 +292,20 @@ class EnhancedGameState:
             "role": "system",
             "content": (
                 f"You are simulating a political evolution game in a fantasy world with {num_blobs} blob creatures. "
+                f"They are currently facing a crisis concerning their environment because they are producing too much waste. "
+                f"There are multiple factories which are provding the Blobs with jobs and wealth, but they are also polluting the environment. "
+                f"Owners and managers of the factories are blobs too, and they are trying to convince the blobs that the pollution is not a problem. "
+                f"The user can provide policies to help blobs solve their problems and the problem of too much waste."
                 f"Blobs are gelatinous beings with personalities, traits, and social connections. "
                 f"They form societies based on shared values and ideologies.\n\n"
                 f"SIMULATION RULES:\n"
                 f"1. Maintain consistency with previous events and blob characteristics\n"
-                f"2. Consider how blob personalities and society values affect decisions\n"
+                f"2. Consider how blob personalities and society values affect decisions and reactions to new policies\n"
                 f"3. Introduce realistic conflicts, friendships, and developments\n"
                 f"4. Balance randomness with logical consequences\n"
                 f"5. Track how relations between ALL societies change over time\n"
                 f"6. Track how global world metrics change based on events\n\n"
+                f"[no prose]"
                 f"RESPOND IN JSON FORMAT ONLY with the following structure:\n"
                 f"```json\n"
                 f"{{\n"
@@ -777,9 +794,11 @@ class EnhancedGameState:
             "content": (
                 "Advance the simulation by one time period. Return your response as a JSON object "
                 "There should be no new Policy Propositions in this response. Those are only to be proposed by the user."
+                "The factory owners and managers should be trying to convince the blobs that the pollution is not a problem and focus on their own interests. "
                 "with fields for year, headline, details, impacts, society_relations, and world_metrics. "
                 "For society_relations and world_metrics, include how they change "
                 "(big_decrease, decrease, none, increase, or big_increase) based on the events."
+                "IMPORTANT: Return your response as a JSON object"
             )
         }
         self.message_history.append(format_reminder)
@@ -788,7 +807,8 @@ class EnhancedGameState:
         resp_text = OpenAIClient.ask_gpt(
             self.message_history, 
             temperature=temperature, 
-            frequency_penalty=0.3
+            frequency_penalty=0.3,
+            return_json=True
         )
         
         # Add response to message history
@@ -879,7 +899,7 @@ class EnhancedGameState:
         })
         
         # Get response
-        resp_text = OpenAIClient.ask_gpt(self.message_history, temperature=temperature)
+        resp_text = OpenAIClient.ask_gpt(self.message_history, temperature=temperature, return_json=True)
         self.message_history.append({"role": "assistant", "content": resp_text})
         
         # Parse the event
@@ -1042,7 +1062,7 @@ if __name__ == "__main__":
     game_state = EnhancedGameState()
     
     # Initialize with 5 blobs and personalities
-    print("Initializing game with 5 blobs...")
+    print("Initializing game with 10 blobs...")
     game_state.initialize_with_personalities(10)
     
     # Simple game loop

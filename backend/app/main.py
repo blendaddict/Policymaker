@@ -39,6 +39,7 @@ class SocietyResponse(BaseModel):
 class EventResponse(BaseModel):
     year: int
     headline: str
+    headline_metric: str
     details: str
     impacts: Dict[str, str]
     image_url: Optional[str]
@@ -135,6 +136,7 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
             "event": {
                 "year": event.year,
                 "headline": event.headline,
+                "headline_metrics": event.metrics_headline,
                 "details": event.details,
                 "impacts": event.impacts,
                 "image_url": event.image_url
@@ -167,6 +169,7 @@ async def propose_policy(request: PolicyRequest):
             event_data = {
                 "year": event.year,
                 "headline": event.headline,
+                "headline_metrics": event.metrics_headline,
                 "details": event.details,
                 "impacts": event.impacts,
                 "image_url": event.image_url
@@ -176,7 +179,7 @@ async def propose_policy(request: PolicyRequest):
         
         return {
             "status": "Policy proposition processed",
-            "result": result,
+            #"result": result,
             "current_year": game_state.current_year,
             "metrics": metrics,  # Include world metrics
             "event": event_data
@@ -249,6 +252,7 @@ async def get_events():
         EventResponse(
             year=event.year,
             headline=event.headline,
+            headline_metric=event.metrics_headline,
             details=event.details,
             impacts={str(blob_id): impact for blob_id, impact in event.impacts.items()},
             image_url=event.image_url
