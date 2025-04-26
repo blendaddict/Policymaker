@@ -27,7 +27,7 @@ export function Blob({ color = "white", initialX = 0 }) {
         await next({ position: [initialX - 2, 0.5, 0] });
       }
     },
-    config: { duration: 2000 }, // speed of walk
+    config: { duration: 2000 }, // sped of walk
   });
 
   return <animated.primitive object={obj} ref={ref} position={position} scale={[0.1, 0.1, 0.1]}  />;
