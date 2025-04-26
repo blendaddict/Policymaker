@@ -39,6 +39,7 @@ class SocietyResponse(BaseModel):
 class EventResponse(BaseModel):
     year: int
     headline: str
+    subheadlines: List[str]
     headline_metric: str
     details: str
     impacts: Dict[str, str]
@@ -136,6 +137,7 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
             "event": {
                 "year": event.year,
                 "headline": event.headline,
+                "subheadlines": event.subheadlines,
                 "headline_metrics": event.metrics_headline,
                 "details": event.details,
                 "impacts": event.impacts,
@@ -169,7 +171,8 @@ async def propose_policy(request: PolicyRequest):
     try:
         result = game_state.policy_proposition(
             proposal=request.proposal,
-            temperature=request.temperature
+            temperature=request.temperature,
+            create_image=False
         )
         
         # Get current metrics
@@ -181,6 +184,7 @@ async def propose_policy(request: PolicyRequest):
             event_data = {
                 "year": event.year,
                 "headline": event.headline,
+                "subheadlines": event.subheadlines,
                 "headline_metrics": event.metrics_headline,
                 "details": event.details,
                 "impacts": event.impacts,

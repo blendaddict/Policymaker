@@ -225,6 +225,7 @@ class WorldEvent:
         self.world_metrics = world_metrics or {}  # Dict mapping metric name to change type
         self.image_url: Optional[str] = None
         self.metrics_headline: str = ""  # Internal headline based only on world metrics
+        self.subheadlines: List[str] = []  # Fun, quirky subheadlines
     
     def __repr__(self):
         return f"WorldEvent(year={self.year}, headline='{self.headline}')"
@@ -259,7 +260,12 @@ class WorldEvent:
             if metrics_list:
                 metrics_str = "\n\nWorld Metrics:\n" + "\n".join([f"- {m}" for m in metrics_list])
         
-        return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}{metrics_str}"
+        # Add subheadlines if they exist
+        subheadlines_str = ""
+        if hasattr(self, 'subheadlines') and self.subheadlines:
+            subheadlines_str = "\n\nIn Other News:\n" + "\n".join([f"- {headline}" for headline in self.subheadlines])
+        
+        return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}{metrics_str}{subheadlines_str}"
 
 class EnhancedGameState:
     """
@@ -312,6 +318,13 @@ class EnhancedGameState:
                 f"  \"year\": {self.current_year + 1},\n"
                 f"  \"headline\": \"Brief headline of main event\",\n"
                 f"  \"details\": \"Detailed description of what happened\",\n"
+                f"  \"subheadlines\": [\n"
+                f"    \"Fun quirky subheadline 1\",\n"
+                f"    \"Fun quirky subheadline 2\",\n"
+                f"    \"Fun quirky subheadline 3\",\n"
+                f"    \"Fun quirky subheadline 4\",\n"
+                f"    \"Fun quirky subheadline 5\"\n"
+                f"  ],\n"
                 f"  \"impacts\": {{\n"
                 f"    \"blob_1\": \"Impact on Blob-1\",\n"
                 f"    \"blob_2\": \"Impact on Blob-2\",\n"
@@ -641,6 +654,11 @@ class EnhancedGameState:
                 headline = event_data.get('headline', 'Unknown Event')
                 details = event_data.get('details', 'No details available')
                 
+                # Extract subheadlines
+                subheadlines = event_data.get('subheadlines', [])
+                if not isinstance(subheadlines, list):
+                    subheadlines = []
+                
                 # Extract impacts
                 impacts = {}
                 impact_data = event_data.get('impacts', {})
@@ -725,7 +743,12 @@ class EnhancedGameState:
                     # Store metric change
                     world_metrics[metric_name] = change_type
                 
-                return WorldEvent(year, headline, details, impacts, society_relations, world_metrics)
+                event = WorldEvent(year, headline, details, impacts, society_relations, world_metrics)
+                
+                # Add subheadlines to the event
+                event.subheadlines = subheadlines
+                
+                return event
             
             except json.JSONDecodeError as e:
                 print(f"Failed to parse JSON: {str(e)}")
@@ -733,7 +756,7 @@ class EnhancedGameState:
         
         except Exception as e:
             print(f"Error parsing event: {str(e)}")
-            return None    
+            return None
 
     def update_society_relations(self, event: WorldEvent):
         """Update society relations based on the event's relationship changes"""
@@ -795,7 +818,7 @@ class EnhancedGameState:
                 "Advance the simulation by one time period. Return your response as a JSON object "
                 "There should be no new Policy Propositions in this response. Those are only to be proposed by the user."
                 "The factory owners and managers should be trying to convince the blobs that the pollution is not a problem and focus on their own interests. "
-                "with fields for year, headline, details, impacts, society_relations, and world_metrics. "
+                "with fields for year, headline, subheadlines, details, impacts, society_relations, and world_metrics. "
                 "For society_relations and world_metrics, include how they change "
                 "(big_decrease, decrease, none, increase, or big_increase) based on the events."
                 "IMPORTANT: Return your response as a JSON object"
@@ -894,7 +917,8 @@ class EnhancedGameState:
                 f"POLICY PROPOSITION: {proposal}\n\n"
                 f"The lawmaker proposes a new policy to be enacted in the blob world. "
                 f"How does this affect the world of blobs? Return your response as a JSON object "
-                f"with fields for year, headline, details, impacts, society_relations, and world_metrics."
+                f"with fields for year, headline, details, subheadlines (5 fun, quirky headlines), "
+                f"impacts, society_relations, and world_metrics."
             )
         })
         
@@ -1061,7 +1085,7 @@ if __name__ == "__main__":
     # Example usage
     game_state = EnhancedGameState()
     
-    # Initialize with 5 blobs and personalities
+    # Initialize with 10 blobs and personalities
     print("Initializing game with 10 blobs...")
     game_state.initialize_with_personalities(10)
     
@@ -1077,21 +1101,47 @@ if __name__ == "__main__":
             print("\nRunning next iteration...")
             event = game_state.run_iteration(create_image=False)
             if event:
-                print(f"\nEvent: {event.headline}")
+                print(f"\nMain Event: {event.headline}")
                 print(f"Details: {event.details}")
-                print("Impacts:")
+                
+                #display all subheadlines
+                print("\nSubheadlines:")
+                for i, headline in enumerate(event.subheadlines):
+                    print(f"{i+1}. {headline}")
+                
+                print("\nImpacts:")
                 for blob_id, impact in event.impacts.items():
                     print(f"- Blob {blob_id}: {impact}")
-                print("Society Relations:")
+                
+                print("\nSociety Relations:")
                 for relation_key, change in event.society_relations.items():
                     print(f"- {relation_key}: {change}")
+                
+                print("\nWorld Metrics:")
+                for metric_name, change in event.world_metrics.items():
+                    print(f"- {metric_name}: {change}")
+                
+                # Show all subheadlines
+                if event.subheadlines:
+                    print("\nAll Subheadlines:")
+                    for i, headline in enumerate(event.subheadlines):
+                        print(f"{i+1}. {headline}")
         
         elif user_input.lower().startswith('p '):
             proposal_text = user_input[2:].strip()
             if proposal_text:
                 print(f"\nSubmitting policy proposition: {proposal_text}")
                 result = game_state.policy_proposition(proposal_text, create_image=False)
-                print(f"Result: {result}")
+                event = game_state.world_events[-1] if game_state.world_events else None
+                
+                if event:
+                    print(f"\nMain Event: {event.headline}")
+                    print(f"Details: {event.details}")
+                    
+                    # Display a random subheadline
+                    if event.subheadlines:
+                        random_subheadline = random.choice(event.subheadlines)
+                        print(f"\nIn Other News: {random_subheadline}")
             else:
                 print("Please provide policy text after 'p'")
         
@@ -1105,5 +1155,17 @@ if __name__ == "__main__":
             relations = game_state.get_society_relations_report()
             print(f"Relations: {relations}")
         
+        elif user_input.lower() == 'subheadlines':
+            if game_state.world_events:
+                latest_event = game_state.world_events[-1]
+                if latest_event.subheadlines:
+                    print("\nLatest Event Subheadlines:")
+                    for i, headline in enumerate(latest_event.subheadlines):
+                        print(f"{i+1}. {headline}")
+                else:
+                    print("No subheadlines available for the latest event.")
+            else:
+                print("No events have occurred yet.")
+        
         else:
-            print("Invalid input. Enter 's' to skip, 'p [text]' to propose, 'status' for world status, 'relations' for society relations, or 'q' to quit.")
+            print("Invalid input. Enter 's' to skip, 'p [text]' to propose, 'status' for world status, 'relations' for society relations, 'subheadlines' to see all subheadlines, or 'q' to quit.")
