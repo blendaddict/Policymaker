@@ -212,6 +212,7 @@ class WorldEvent:
         self.society_relations = society_relations or {}  # Dict mapping 'society_id1-society_id2' to relation change
         self.world_metrics = world_metrics or {}  # Dict mapping metric name to change type
         self.image_url: Optional[str] = None
+        self.metrics_headline: str = ""  # Internal headline based only on world metrics
     
     def __repr__(self):
         return f"WorldEvent(year={self.year}, headline='{self.headline}')"
@@ -247,8 +248,6 @@ class WorldEvent:
                 metrics_str = "\n\nWorld Metrics:\n" + "\n".join([f"- {m}" for m in metrics_list])
         
         return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}{metrics_str}"
-
-
 
 class EnhancedGameState:
     """
@@ -371,6 +370,10 @@ class EnhancedGameState:
                 print(f"  {metric_name.replace('_', ' ').title()}: {old_value:.2f} -> {new_value:.2f} ({change_type})")
             except Exception as e:
                 print(f"Error updating metric {metric_name}: {str(e)}")
+        
+        # Generate and set the metrics headline
+        event.metrics_headline = self.generate_metrics_headline(event)
+        print(f"Internal metrics headline: {event.metrics_headline}")
 
     def generate_societies(self, num_societies: int) -> List[Society]:
         """Generate societies with distinct ideologies and values"""
@@ -773,6 +776,7 @@ class EnhancedGameState:
             "role": "user", 
             "content": (
                 "Advance the simulation by one time period. Return your response as a JSON object "
+                "There should be no new Policy Propositions in this response. Those are only to be proposed by the user."
                 "with fields for year, headline, details, impacts, society_relations, and world_metrics. "
                 "For society_relations and world_metrics, include how they change "
                 "(big_decrease, decrease, none, increase, or big_increase) based on the events."
@@ -854,7 +858,7 @@ class EnhancedGameState:
             return event.image_url
         return None
     
-    def policy_proposition(self, proposal: str, temperature: float = 0.7) -> str:
+    def policy_proposition(self, proposal: str, temperature: float = 0.7, create_image=True) -> str:
         """Submit a user policy proposition to the simulation"""
         # Add current metrics to provide context
         metrics_summary = self.world_metrics.get_summary()
@@ -868,6 +872,7 @@ class EnhancedGameState:
             "role": "user", 
             "content": (
                 f"POLICY PROPOSITION: {proposal}\n\n"
+                f"The lawmaker proposes a new policy to be enacted in the blob world. "
                 f"How does this affect the world of blobs? Return your response as a JSON object "
                 f"with fields for year, headline, details, impacts, society_relations, and world_metrics."
             )
@@ -889,14 +894,68 @@ class EnhancedGameState:
             # Update world metrics based on the event
             self.update_world_metrics(event)
             
-            # Use our LLM-driven image generation method
-            image_url = self.generate_event_image(event)
-            
-            # Log the successful image generation
-            if image_url:
-                print(f"Successfully generated comic-style image for policy event: {event.headline}")
+            if create_image:
+                # Use our LLM-driven image generation method
+                image_url = self.generate_event_image(event)
+                
+                # Log the successful image generation
+                if image_url:
+                    print(f"Successfully generated comic-style image for policy event: {event.headline}")
         
         return resp_text
+
+    def generate_metrics_headline(self, event: WorldEvent) -> str:
+        """Generate a simple headline based only on world metrics changes, showing percentage values"""
+        if not event.world_metrics:
+            return "No significant metric changes"
+        
+        # Find the most significant metric change
+        most_significant = {
+            "metric": None,
+            "change_type": "none",
+            "priority": 0
+        }
+        
+        # Assign priority to different change types
+        change_priority = {
+            "big_increase": 5,
+            "big_decrease": 4,
+            "increase": 3,
+            "decrease": 2,
+            "none": 1
+        }
+        
+        # Find the most significant change
+        for metric_name, change_type in event.world_metrics.items():
+            priority = change_priority.get(change_type, 0)
+            if priority > most_significant["priority"]:
+                most_significant["metric"] = metric_name
+                most_significant["change_type"] = change_type
+                most_significant["priority"] = priority
+        
+        # If we found a significant change, create a headline with the actual percentage
+        if most_significant["metric"] and most_significant["priority"] > 1:
+            metric_name = most_significant["metric"]
+            change_type = most_significant["change_type"]
+            
+            # Get the current metric value
+            metric_value = self.world_metrics.metrics.get(metric_name, 0.5)
+            
+            # Format the metric name for display
+            display_name = metric_name.replace('_', ' ').title()
+            
+            # Create appropriate verb based on change type
+            verb = "stays at"
+            if "increase" in change_type:
+                verb = "rises to"
+            elif "decrease" in change_type:
+                verb = "falls to"
+            
+            # Convert to percentage and create headline
+            percentage = int(metric_value * 100)
+            return f"{display_name} {verb} {percentage}%"
+        
+        return "Metrics Stable"
 
     def get_world_metrics_report(self) -> str:
         """Generate a specific report about current world metrics"""
@@ -984,39 +1043,47 @@ if __name__ == "__main__":
     
     # Initialize with 5 blobs and personalities
     print("Initializing game with 5 blobs...")
-    game_state.initialize_with_personalities(5)
+    game_state.initialize_with_personalities(10)
     
-    # Run first iteration
-    print("\nRunning first iteration...")
-    event = game_state.run_iteration(create_image=False)
-    if event:
-        print(f"\nEvent: {event.headline}")
-        print(f"Details: {event.details}")
-        print("Impacts:")
-        for blob_id, impact in event.impacts.items():
-            print(f"- Blob {blob_id}: {impact}")
-        print("Society Relations:")
-        for relation_key, change in event.society_relations.items():
-            print(f"- {relation_key}: {change}")
-    
-    # Submit a policy proposition
-    print("\nSubmitting policy proposition...")
-    result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
-    print(f"Result: {result}...")
-    
-    # Run another iteration
-    print("\nRunning another iteration...")
-    event = game_state.run_iteration(create_image=False)
-    if event:
-        print(f"\nEvent: {event.headline}")
-        print(f"Details: {event.details}")
-    
-    # Get world status report
-    print("\nGenerating world status report...")
-    status = game_state.get_world_status_report()
-    print(f"Status: {status}")
-    
-    # Get society relations report
-    print("\nGenerating society relations report...")
-    relations = game_state.get_society_relations_report()
-    print(f"Relations: {relations}")
+    # Simple game loop
+    while True:
+        user_input = input("\nEnter 's' to skip to next iteration or 'p [text]' to make a proposal (q to quit): ")
+        
+        if user_input.lower() == 'q':
+            print("Exiting simulation. Goodbye!")
+            break
+        
+        elif user_input.lower() == 's':
+            print("\nRunning next iteration...")
+            event = game_state.run_iteration(create_image=False)
+            if event:
+                print(f"\nEvent: {event.headline}")
+                print(f"Details: {event.details}")
+                print("Impacts:")
+                for blob_id, impact in event.impacts.items():
+                    print(f"- Blob {blob_id}: {impact}")
+                print("Society Relations:")
+                for relation_key, change in event.society_relations.items():
+                    print(f"- {relation_key}: {change}")
+        
+        elif user_input.lower().startswith('p '):
+            proposal_text = user_input[2:].strip()
+            if proposal_text:
+                print(f"\nSubmitting policy proposition: {proposal_text}")
+                result = game_state.policy_proposition(proposal_text, create_image=False)
+                print(f"Result: {result}")
+            else:
+                print("Please provide policy text after 'p'")
+        
+        elif user_input.lower() == 'status':
+            print("\nGenerating world status report...")
+            status = game_state.get_world_status_report()
+            print(f"Status: {status}")
+        
+        elif user_input.lower() == 'relations':
+            print("\nGenerating society relations report...")
+            relations = game_state.get_society_relations_report()
+            print(f"Relations: {relations}")
+        
+        else:
+            print("Invalid input. Enter 's' to skip, 'p [text]' to propose, 'status' for world status, 'relations' for society relations, or 'q' to quit.")
