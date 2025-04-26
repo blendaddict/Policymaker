@@ -28,7 +28,7 @@ class OpenAIClient:
         while attempt < max_retries:
             try:
                 response = openai.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     messages=messages,
                     temperature=temperature,           # Controls randomness (0-1)
                     top_p=top_p,                       # Nucleus sampling parameter
@@ -42,34 +42,6 @@ class OpenAIClient:
                     raise Exception(f"Failed to get response from OpenAI after {max_retries} attempts: {str(e)}")
                 print(f"API error: {str(e)}. Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
-    
-    @staticmethod
-    def generate_image(prompt: str, n: int = 1, size: str = "1024x1024", 
-                       max_retries: int = 3, retry_delay: int = 2) -> list[str]:
-        """
-        Use OpenAI's Image API to generate images with error handling
-        """
-        # Ensure prompt isn't too long for the API
-        if len(prompt) > 1000:
-            prompt = prompt[:997] + "..."
-            
-        attempt = 0
-        while attempt < max_retries:
-            try:
-                resp = openai.images.generate(
-                    prompt=prompt,
-                    n=n,
-                    size=size
-                )
-                return [img.url for img in resp.data]
-            except Exception as e:
-                attempt += 1
-                if attempt >= max_retries:
-                    print(f"Failed to generate image after {max_retries} attempts: {str(e)}")
-                    return []
-                print(f"Image API error: {str(e)}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-
 
 class Society:
     """Represents a society/faction that blobs can belong to"""
@@ -672,9 +644,9 @@ if __name__ == "__main__":
     
     # Submit a policy proposition
     print("\nSubmitting policy proposition...")
-    #result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
+    result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
     #result = game_state.policy_proposition("Too much trash is piling up in the blob world.")
-    result = game_state.policy_proposition("The blobs face a disagreemnt over blob hats and are building a huge wall.")
+    #result = game_state.policy_proposition("The blobs face a disagreemnt over blob hats and are building a huge wall.")
     print(f"Result: {result}...")
     
     # Run another iteration
