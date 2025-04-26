@@ -28,7 +28,7 @@ class OpenAIClient:
         while attempt < max_retries:
             try:
                 response = openai.chat.completions.create(
-                    model="gpt-3.5-turbo",
+                    model="gpt-4o-mini",
                     messages=messages,
                     temperature=temperature,           # Controls randomness (0-1)
                     top_p=top_p,                       # Nucleus sampling parameter
@@ -42,34 +42,6 @@ class OpenAIClient:
                     raise Exception(f"Failed to get response from OpenAI after {max_retries} attempts: {str(e)}")
                 print(f"API error: {str(e)}. Retrying in {retry_delay} seconds...")
                 time.sleep(retry_delay)
-    
-    @staticmethod
-    def generate_image(prompt: str, n: int = 1, size: str = "1024x1024", 
-                       max_retries: int = 3, retry_delay: int = 2) -> list[str]:
-        """
-        Use OpenAI's Image API to generate images with error handling
-        """
-        # Ensure prompt isn't too long for the API
-        if len(prompt) > 1000:
-            prompt = prompt[:997] + "..."
-            
-        attempt = 0
-        while attempt < max_retries:
-            try:
-                resp = openai.images.generate(
-                    prompt=prompt,
-                    n=n,
-                    size=size
-                )
-                return [img.url for img in resp.data]
-            except Exception as e:
-                attempt += 1
-                if attempt >= max_retries:
-                    print(f"Failed to generate image after {max_retries} attempts: {str(e)}")
-                    return []
-                print(f"Image API error: {str(e)}. Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-
 
 class Society:
     """Represents a society/faction that blobs can belong to"""
@@ -135,33 +107,6 @@ class Blob:
             "description": description
         })
     
-    def update_relationship(self, other_blob_id: int, change: float):
-        """Update relationship score with another blob"""
-        current = self.relationships.get(other_blob_id, 0.0)
-        new_value = max(-1.0, min(1.0, current + change))  # Clamp between -1.0 and 1.0
-        self.relationships[other_blob_id] = new_value
-    
-    def get_relationship_summary(self) -> str:
-        """Get a summary of this blob's relationships"""
-        if not self.relationships:
-            return f"{self.name} has no established relationships yet."
-        
-        result = []
-        for other_id, score in self.relationships.items():
-            if score > 0.7:
-                status = "close friend"
-            elif score > 0.3:
-                status = "friend"
-            elif score > -0.3:
-                status = "acquaintance"
-            elif score > -0.7:
-                status = "dislikes"
-            else:
-                status = "enemy"
-            result.append(f"Relationship with Blob {other_id}: {status} ({score:.1f})")
-        
-        return "\n".join(result)
-    
     def join_society(self, society_id: int):
         """Join a society"""
         self.society_id = society_id
@@ -205,8 +150,7 @@ class EnhancedGameState:
         self.current_year = 0
 
         self.blob_image_generator = BlobImageGenerator(
-            api_key=settings.openai_api_key,
-            reference_image_path="local_blob_example.png"
+            api_key=settings.openai_api_key
         )
     
     def get_enhanced_system_prompt(self, num_blobs: int) -> Dict[str, str]:
@@ -517,9 +461,6 @@ class EnhancedGameState:
             self.current_year = event.year
             self.world_events.append(event)
             
-            # Update blob relationships based on impacts
-            self.update_relationships_from_event(event)
-
             if create_image:
                 # Generate an image for the event using our LLM-driven method
                 image_url = self.generate_event_image(event)
@@ -532,40 +473,6 @@ class EnhancedGameState:
         else:
             print("Could not parse a valid event from the response")
             return None
-    
-    def update_relationships_from_event(self, event: WorldEvent):
-        """Update blob relationships based on event impacts"""
-        for blob_id, impact in event.impacts.items():
-            impact_lower = impact.lower()
-            
-            # Skip invalid blob IDs
-            blob = next((b for b in self.blobs if b.blob_id == blob_id), None)
-            if not blob:
-                continue
-                
-            # Check if this is a positive or negative impact
-            is_positive = any(word in impact_lower for word in [
-                "friend", "ally", "help", "support", "gift", "happy", "joy", "love"
-            ])
-            is_negative = any(word in impact_lower for word in [
-                "enemy", "fight", "conflict", "anger", "hate", "sad", "hurt", "pain"
-            ])
-            
-            # Look for mentions of other blobs (by name or ID)
-            for other_blob in self.blobs:
-                if other_blob.blob_id == blob_id:
-                    continue
-                
-                if other_blob.name in impact or f"Blob {other_blob.blob_id}" in impact:
-                    # Positive mention improves relationship, negative worsens it
-                    relationship_change = 0.1 if is_positive else -0.1 if is_negative else 0.0
-                    blob.update_relationship(other_blob.blob_id, relationship_change)
-                    other_blob.update_relationship(blob_id, relationship_change)
-                    
-                    # Record this interaction in blob history
-                    interaction_type = "positive" if is_positive else "negative" if is_negative else "neutral"
-                    blob.add_event(event.year, interaction_type, 
-                                  f"Interaction with {other_blob.name}: {impact}")
     
     def create_image_prompt(self, event: WorldEvent, previous_event: Optional[WorldEvent]) -> str:
         """
@@ -621,7 +528,6 @@ class EnhancedGameState:
         if event:
             self.current_year = event.year
             self.world_events.append(event)
-            self.update_relationships_from_event(event)
             
             # Use our LLM-driven image generation method
             image_url = self.generate_event_image(event)
@@ -672,9 +578,9 @@ if __name__ == "__main__":
     
     # Submit a policy proposition
     print("\nSubmitting policy proposition...")
-    #result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
+    result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
     #result = game_state.policy_proposition("Too much trash is piling up in the blob world.")
-    result = game_state.policy_proposition("The blobs face a disagreemnt over blob hats and are building a huge wall.")
+    #result = game_state.policy_proposition("The blobs face a disagreemnt over blob hats and are building a huge wall.")
     print(f"Result: {result}...")
     
     # Run another iteration
