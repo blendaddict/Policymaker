@@ -1,21 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import _ from 'underscore';
-import { Blob } from './components/Blob';
+import { Blob, floorLevel } from './components/Blob';
 import { Platform } from './components/Platform';
 import { OrbitControls } from '@react-three/drei';
 import { ImportedMesh } from './components/ImportedMesh';
 
 function App() {
-  const [color, setColor] = useState("white")
+  const [color, setColor] = useState("white");
 
+  // Refs to interact with specific blobs
+  const blobRef1 = useRef();
+  const blobRef2 = useRef();
 
-  const handleClick = () => {
-    
+  // Function to generate random target position (x, y, z)
+  const generateRandomPosition = () => {
+    return [Math.random() * 5 - 2.5, floorLevel, Math.random() * 5 - 2.5]; // Random x and z between -2.5 and 2.5, with y=0
+  };
 
-  }
-
-  
+  // Function to move a specific blob to a random position
+  const handleMoveBlob = (blobRef) => {
+    const randomPosition = generateRandomPosition();
+    blobRef.current.moveToPosition(randomPosition);  // Trigger move on the specific blob
+  };
 
   return (
     <div className="App">
@@ -32,22 +38,25 @@ function App() {
         <Blob color="cyan" initialX={2} />
         {/* <Blob color="lime" initialX={2} /> */}
 
-        <OrbitControls 
+        <OrbitControls
             maxPolarAngle={Math.PI / 2 + Math.PI / 9} // 90 + 20 deg
             minPolarAngle={0} 
             maxAzimuthAngle={Math.PI / 6}             // 30 deg
             minAzimuthAngle={-Math.PI / 6}             // -30 deg
           />
-      </Canvas>
+        </Canvas>
       </div>
       <div style={{"display":"flex", "flex-direction":"column", "align-items":"center"}}>
-      <button onClick={handleClick}>
-        <h1>Do something</h1>
-      </button>
-        <h1>yee:</h1>
+        <button onClick={() => handleMoveBlob(blobRef1)}>
+          <h1>Move Hotpink Blob</h1>
+        </button>
+        <button onClick={() => handleMoveBlob(blobRef2)}>
+          <h1>Move Cyan Blob</h1>
+        </button>
       </div>
     </div>
   );
 }
 
 export default App;
+
