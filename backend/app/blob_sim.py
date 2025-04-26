@@ -4,9 +4,9 @@ import json
 import time
 import random
 from typing import List, Dict, Any, Optional, Tuple
-from config import settings
-from random_stats import generate_random_blobs
-from blob_image_generator import BlobImageGenerator
+from app.config import settings
+from app.random_stats import generate_random_blobs
+from app.blob_image_generator import BlobImageGenerator
 
 openai.api_key = settings.openai_api_key
 
@@ -354,39 +354,6 @@ class EnhancedGameState:
         
         return personality, traits
 
-    def generate_blob_images(self):
-        """Generate visual representations for each blob"""
-        for blob in self.blobs:
-            traits_str = ", ".join(blob.traits) if blob.traits else "mysterious personality"
-            
-            prompt = (
-                f"A cute fantasy blob creature named {blob.name} with {traits_str}. "
-                f"Characteristics: {blob.prompt_description()}. "
-                f"Personality: {blob.personality}. "
-                f"Make it colorful, gelatinous, with simple facial features. No text or labels."
-            )
-            
-            urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
-            if urls:
-                blob.image_url = urls[0]
-                print(f"Generated image for {blob.name}: {blob.image_url}")
-    
-    def generate_society_images(self):
-        """Generate visual representations for each society"""
-        for society in self.societies:
-            values_str = ", ".join(society.values)
-            
-            prompt = (
-                f"A symbolic representation of 'Society-{society.society_id}', a society of blob creatures. "
-                f"Their ideology is {society.ideology} and they value {values_str}. "
-                f"Create an abstract emblem or flag that represents their identity. No text."
-            )
-            
-            urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
-            if urls:
-                society.image_url = urls[0]
-                print(f"Generated image for Society-{society.society_id}: {society.image_url}")
-    
     def assign_blobs_to_societies(self):
         """Assign blobs to societies based on compatibility"""
         if not self.societies or not self.blobs:
@@ -447,10 +414,6 @@ class EnhancedGameState:
             )
         })
         
-        # Generate images after initialization
-        #self.generate_blob_images()
-        #self.generate_society_images()
-    
     def summarize_world_history(self, max_events: int = 3) -> str:
         """Create a summary of key historical events to maintain context"""
         if not self.world_events:
