@@ -6,12 +6,14 @@ import { animated, useSpring } from '@react-spring/three';
 
 export const floorLevel = 0.22 // 0.148310;
 
-const Blob = forwardRef(({ color = "white", initialX = 0 }, ref) => {
+const Blob = forwardRef(({ color = "white", initialX = 0, showStory = ()=>{}, story="no story"}, ref) => {
   const obj = useLoader(OBJLoader, '/models/blob.obj');  // Load the .obj model
   const meshRef = useRef();
   const [targetPosition, setTargetPosition] = useState([initialX, floorLevel, 0]);
   const [startTime, setStartTime] = useState(0);
   const [currentPosition, setCurrentPosition] = useState([initialX, floorLevel, 0]); // Track current position
+  const [hovered, setHover] = useState(false)
+  const [active, setActive] = useState(false)
 
   let geometry = null;
   // Extract geometry from the loaded OBJ model
@@ -23,6 +25,11 @@ const Blob = forwardRef(({ color = "white", initialX = 0 }, ref) => {
 
   // Material for the mesh
   const material = new THREE.MeshStandardMaterial({ color });
+  const highlighted = new THREE.MeshStandardMaterial({
+    color: 0x222222,
+    emissive: 0xffff00,
+    emissiveIntensity: 1
+  });
 
   // Spring-based animation (use spring for smooth position transitions)
   const { position } = useSpring({
@@ -57,7 +64,6 @@ const Blob = forwardRef(({ color = "white", initialX = 0 }, ref) => {
   // Animate blob movement on each frame
   useFrame(() => {
     if (!meshRef.current || !targetPosition) return;
-
     const elapsedTime = (performance.now() - startTime) / 1000;
     const [dx, dz] = [currentPosition[0] - targetPosition[0], currentPosition[2] - targetPosition[2]];
     const dist = Math.sqrt(dx * dx + dz * dz);
@@ -86,8 +92,11 @@ const Blob = forwardRef(({ color = "white", initialX = 0 }, ref) => {
   return (
     <animated.mesh
       ref={meshRef}
+      onClick={() => showStory(story)}
+      onPointerOver={(event) => setHover(true)}
+      onPointerOut={(event) => setHover(false)}
       geometry={geometry}
-      material={material}
+      material={hovered ? highlighted : material}
       position={position}
       scale={[0.1, 0.1, 0.1]}
     />

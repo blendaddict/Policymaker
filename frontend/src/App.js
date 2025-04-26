@@ -14,22 +14,22 @@ import HistoryEduIcon from "@mui/icons-material/HistoryEdu";
 import { IconButton } from '@mui/material';
 import { useThree,useFrame  } from '@react-three/fiber'
 import { useControls } from '@react-three/drei'
-
+import StoryPopup from './components/StoryPopUp'
 
 const metrics = {
   happiness: 40,
   extremism: 20,
 };
 
-function LogCamera() {
-  const { camera } = useThree()
+// function LogCamera() {
+//   const { camera } = useThree()
 
-  useFrame(() => {
-    console.log('camera.matrixWorld:', camera.matrixWorld.elements)
-  })
+//   useFrame(() => {
+//     console.log('camera.matrixWorld:', camera.matrixWorld.elements)
+//   })
 
-  return null
-}
+//   return null
+// }
 
 function HeadlineTicker({ headlines }) {
   const tickerRef = useRef();
@@ -56,7 +56,7 @@ function HeadlineTicker({ headlines }) {
       overflow: "hidden",
       whiteSpace: "nowrap",
       width: "100%",
-      background: "black",
+      background: "darkred",
       color: "white",
       fontSize: "1.2rem",
       padding: "10px 0",
@@ -79,6 +79,8 @@ function HeadlineTicker({ headlines }) {
 }
 
 
+
+
 function App() {
   const [color, setColor] = useState("white");
   const [goal, setGoal] = useState("Reduce trash in the environment");
@@ -86,7 +88,13 @@ function App() {
   const [policy, setPolicy] = useState("")
   const blobRef1 = useRef();
   const blobRef2 = useRef();
+  const [story, setStory] = useState("")
+  const [popupOpen, setPopupOpen] = useState(false);
 
+  const setStoryPopUp = (story) => {
+    setStory(story);
+    setPopupOpen(true);
+  }
 
   // Function to generate random target position (x, y, z)
   const generateRandomPosition = () => {
@@ -146,7 +154,7 @@ function App() {
           camera={{ position: [-0.0, 7.3156, 7.0145], fov: 50 }}
           style={{ width: "100%", height: "65vh", overflow: "hidden" }}
         > 
-        <LogCamera/>
+        {/* <LogCamera/> */}
           <Html
     position={[-3, 4., -4]}
     style={{
@@ -187,8 +195,8 @@ function App() {
             scale={[0.2, 0.25, 0.2]}
             rotation={[0, -Math.PI / 2, 0]}
           />
-           <Blob ref={blobRef1} color="hotpink" initialX={2} />
-        <Blob ref={blobRef2} color="cyan" initialX={2} />
+           <Blob ref={blobRef1} color="hotpink" initialX={2} showStory={(story)=>setStoryPopUp(story)} story="I'm a unicorn that hates tariffs" />
+        <Blob ref={blobRef2} color="cyan" initialX={2}  showStory={(story)=>setStoryPopUp(story)} story="I'm a baller that loves tariffs" />
           {/* <Blob color="lime" initialX={2} /> */}
 
           <OrbitControls
@@ -241,6 +249,7 @@ function App() {
         </button>
         </div> */}
       </div>
+      <StoryPopup open={popupOpen} onClose={() => setPopupOpen(false)} story={story} />
     </div>
   );
 }
