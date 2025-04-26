@@ -72,8 +72,9 @@ class OpenAIClient:
 
 class Society:
     """Represents a society/faction that blobs can belong to"""
-    def __init__(self, society_id: int, ideology: str, values: List[str]):
+    def __init__(self, society_id: int, name: str, ideology: str, values: List[str]):
         self.society_id = society_id
+        self.name = name
         self.ideology = ideology
         self.values = values
         self.members: List[int] = []  # List of blob IDs belonging to this society
@@ -81,7 +82,7 @@ class Society:
         self.image_url: Optional[str] = None
     
     def __repr__(self):
-        return f"Society-{self.society_id}(ideology='{self.ideology}', members={len(self.members)})"
+        return f"Society(id={self.society_id}, name='{self.name}', members={len(self.members)})"
     
     def add_member(self, blob_id: int):
         """Add a blob to this society"""
@@ -233,9 +234,10 @@ class EnhancedGameState:
         prompt = (
             f"Create {num_societies} distinct societies for a fantasy world of blob creatures. "
             f"For each society, provide:\n"
-            f"1. A political/social ideology\n"
-            f"2. Three core values\n\n"
-            f"Format as JSON array with objects containing 'ideology', and 'values' fields."
+            f"1. A unique name\n"
+            f"2. A political/social ideology\n"
+            f"3. Three core values\n\n"
+            f"Format as JSON array with objects containing 'name', 'ideology', and 'values' fields."
         )
         
         messages = [
@@ -259,7 +261,7 @@ class EnhancedGameState:
             # If JSON parsing fails, create default societies
             print("Failed to parse society JSON. Creating default societies.")
             society_data = [
-                {"ideology": "Unknown", "values": ["Survival", "Community", "Progress"]}
+                {"name": f"Society {i}", "ideology": "Unknown", "values": ["Survival", "Community", "Progress"]}
                 for i in range(num_societies)
             ]
         
@@ -267,13 +269,14 @@ class EnhancedGameState:
         for i, data in enumerate(society_data[:num_societies]):
             society = Society(
                 society_id=i,
+                name=data.get("name", f"Society {i}"),
                 ideology=data.get("ideology", "Unknown"),
                 values=data.get("values", ["Unknown"])
             )
             societies.append(society)
         
         return societies
-        
+    
     def generate_blobs(self, num_blobs: int):
         """Generate random blobs with properties"""
         self.blobs = []
@@ -301,7 +304,7 @@ class EnhancedGameState:
             member_names = ", ".join([b.name for b in members]) if members else "None"
             
             result.append(
-                f"Society-{society.society_id}\n"
+                f"{society.name} (ID: {society.society_id})\n"
                 f"Ideology: {society.ideology}\n"
                 f"Values: {', '.join(society.values)}\n"
                 f"Members: {member_names}\n"
@@ -371,7 +374,7 @@ class EnhancedGameState:
             values_str = ", ".join(society.values)
             
             prompt = (
-                f"A symbolic representation of 'Society-{society.society_id}', a society of blob creatures. "
+                f"A symbolic representation of '{society.name}', a society of blob creatures. "
                 f"Their ideology is {society.ideology} and they value {values_str}. "
                 f"Create an abstract emblem or flag that represents their identity. No text."
             )
@@ -379,7 +382,7 @@ class EnhancedGameState:
             urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
             if urls:
                 society.image_url = urls[0]
-                print(f"Generated image for Society-{society.society_id}: {society.image_url}")
+                print(f"Generated image for {society.name}: {society.image_url}")
     
     def assign_blobs_to_societies(self):
         """Assign blobs to societies based on compatibility"""
@@ -631,13 +634,13 @@ class EnhancedGameState:
     def get_world_status_report(self) -> str:
         """Generate a comprehensive status report of the world"""
         blob_names = ", ".join([b.name for b in self.blobs])
-        society_ids = ", ".join([f"Society-{s.society_id}" for s in self.societies])
+        society_names = ", ".join([s.name for s in self.societies])
         
         prompt = (
             f"Create a brief status report on the current state of the blob world in year {self.current_year}. "
             f"Include:\n"
             f"1. The current situation of key blobs ({blob_names})\n"
-            f"2. The status of the different societies ({society_ids})\n"
+            f"2. The status of the different societies ({society_names})\n"
             f"3. Major ongoing friendships, conflicts, or developments\n"
             f"Keep it under 600 characters and focus on the most interesting elements."
         )
