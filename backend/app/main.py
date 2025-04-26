@@ -145,6 +145,18 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to run iteration: {str(e)}")
 
+@app.get("/world_metrics", tags=["Information"], response_model=Dict[str, Any])
+async def get_world_metrics():
+    """Get the current world metrics."""
+    if not game_state.blobs:
+        raise HTTPException(status_code=400, detail="Game not initialized. Call /initialize first.")
+    
+    try:
+        metrics = game_state.get_metrics()
+        return metrics
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get world metrics: {str(e)}")
+
 @app.post("/propose_policy", tags=["Simulation Control"], response_model=Dict[str, Any])
 async def propose_policy(request: PolicyRequest):
     """
