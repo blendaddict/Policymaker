@@ -551,8 +551,12 @@ class EnhancedGameState:
             # Update blob relationships based on impacts
             self.update_relationships_from_event(event)
             
-            # Generate an image for the event
-            #self.generate_event_image(event)
+            # Generate an image for the event using our LLM-driven method
+            image_url = self.generate_event_image(event)
+            
+            # Log the successful image generation
+            if image_url:
+                print(f"Successfully generated comic-style image for event: {event.headline}")
             
             return event
         else:
@@ -593,18 +597,59 @@ class EnhancedGameState:
                     blob.add_event(event.year, interaction_type, 
                                   f"Interaction with {other_blob.name}: {impact}")
     
-    def generate_event_image(self, event: WorldEvent):
-        """Generate an illustrative image for the event"""
+    def create_image_prompt(self, event: WorldEvent, previous_event: Optional[WorldEvent], 
+                    ) -> str:
+        """
+        Create a simplified, consistent image prompt focused on the event rather than individual blobs
+        """        
+        # Create a simplified, consistent prompt
         prompt = (
-            f"Illustration of fantasy blob creatures in this scenario: {event.headline}. "
-            f"{event.details}. The blobs are cute, gelatinous creatures with simple faces. "
-            f"Colorful, whimsical style. No text or labels."
+            f"A single illustration of blob creatures during '{event.headline}. "
+            #f"{event.details} "
+            f"Style: Colorful cartoon blobs with simple expressive faces, gelatinous bodies in various colors. "
+            f"Scene is bright and whimsical with a fantasy world setting. "
+            f"Focus on capturing the emotion and action of the event rather than individual blob details. "
+            f"No text, no comic panels, just one cohesive scene with vibrant colors and clean outlines."
         )
         
-        urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="512x512")
+        # Ensure prompt isn't too long
+        if len(prompt) > 800:
+            prompt = prompt[:797] + "..."
+
+        print(f"Image prompt for event '{event.headline}': {prompt}")
+            
+        return prompt
+
+    def generate_event_image(self, event: WorldEvent):
+        """
+        Generate a comic-style illustrative image for the event using LLM to create context
+        """
+        # Get previous event for context if it exists
+        previous_event = None
+        current_index = self.world_events.index(event) if event in self.world_events else -1
+        
+        if current_index > 0:
+            previous_event = self.world_events[current_index - 1]
+        
+        # Get information about involved blobs
+        #involved_blob_ids = list(event.impacts.keys())
+        #involved_blobs = []
+        
+        #for blob_id in involved_blob_ids[:5]:  # Limit to 5 blobs to keep prompt manageable
+        #    blob = next((b for b in self.blobs if b.blob_id == blob_id), None)
+        #    if blob:
+        #        involved_blobs.append(blob)
+        
+        # Create prompt for the image description
+        prompt = self.create_image_prompt(event, previous_event)
+        
+        # Generate the image
+        urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="1024x1024")
         if urls:
             event.image_url = urls[0]
-            print(f"Generated image for event: {event.image_url}")
+            print(f"Generated comic-style image for event: {event.image_url}")
+            return event.image_url
+        return None
     
     def policy_proposition(self, proposal: str, temperature: float = 0.7) -> str:
         """Submit a user policy proposition to the simulation"""
@@ -624,7 +669,13 @@ class EnhancedGameState:
             self.current_year = event.year
             self.world_events.append(event)
             self.update_relationships_from_event(event)
-            #self.generate_event_image(event)
+            
+            # Use our LLM-driven image generation method
+            image_url = self.generate_event_image(event)
+            
+            # Log the successful image generation
+            if image_url:
+                print(f"Successfully generated comic-style image for policy event: {event.headline}")
         
         return resp_text
     
