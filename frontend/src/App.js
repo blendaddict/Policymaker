@@ -82,14 +82,16 @@ function HeadlineTicker({ headlines }) {
 
 
 function App() {
+  const [gameStarted, setGameStarted] = useState(false)
   const [color, setColor] = useState("white");
-  const [goal, setGoal] = useState("Reduce trash in the environment");
+  const [goal, setGoal] = useState("");
   const [goalReached, setGoalReached] = useState(50);
   const [policy, setPolicy] = useState("")
   const blobRef1 = useRef();
   const blobRef2 = useRef();
   const [story, setStory] = useState("")
   const [popupOpen, setPopupOpen] = useState(false);
+  const [headlines, setHeadlines] = useState([])
 
   const setStoryPopUp = (story) => {
     setStory(story);
@@ -102,14 +104,7 @@ function App() {
   };
 
 
-  const headlines = [
-    "Breaking: Blobtopia reaches 40% happiness!",
-    "New Policy Proposed: Less Trash!",
-    "Cyan Blob Moves East!",
-    "Hotpink Blob Dances!",
-    "City Expansion Underway...",
-    "Pollution Levels Drop by 5%",
-  ];
+
   
   // Function to move a specific blob to a random position
   const handleMoveBlob = (blobRef) => {
@@ -123,7 +118,7 @@ function App() {
         if (oldProgress === 100) {
           return 0;
         }
-        const diff = Math.random() * 10;
+        const diff = Math.random() * 10 * (Math.random()-.5)*-1;
         return Math.min(oldProgress + diff, 100);
       });
     }, 500);
@@ -148,10 +143,9 @@ function App() {
         <Box sx={{ width: "60%" }}>
           <LinearProgress variant="determinate" value={goalReached} />
         </Box>
-
-        <Canvas
+        {gameStarted ?  <Canvas
           
-          camera={{ position: [-0.0, 7.3156, 7.0145], fov: 50 }}
+          camera={{ position: [-0.0, 2, 10], fov: 50 }}
           style={{ width: "100%", height: "65vh", overflow: "hidden" }}
         > 
         {/* <LogCamera/> */}
@@ -196,7 +190,7 @@ function App() {
             rotation={[0, -Math.PI / 2, 0]}
           />
            <Blob ref={blobRef1} color="hotpink" initialX={2} showStory={(story)=>setStoryPopUp(story)} story="I'm a unicorn that hates tariffs" />
-        <Blob ref={blobRef2} color="cyan" initialX={2}  showStory={(story)=>setStoryPopUp(story)} story="I'm a baller that loves tariffs" />
+           <Blob ref={blobRef2} color="cyan" initialX={2}  showStory={(story)=>setStoryPopUp(story)} story="I'm a baller that loves tariffs" />
           {/* <Blob color="lime" initialX={2} /> */}
 
           <OrbitControls
@@ -205,7 +199,8 @@ function App() {
             maxAzimuthAngle={Math.PI / 6} // 30 deg
             minAzimuthAngle={-Math.PI / 6} // -30 deg
           />
-        </Canvas>
+        </Canvas> : <div style={{display:"flex", justifyContent:"center", alignItems:"center", height:"65vh" }}> <Button variant="contained" color="white" onClick={()=>{setGameStarted(true)}}>Start Game</Button> </div> }
+       
         <HeadlineTicker headlines={ Array.from({ length: 100 })
   .map(() => headlines)
   .flat()} />
