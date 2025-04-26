@@ -6,6 +6,7 @@ import random
 from typing import List, Dict, Any, Optional, Tuple
 from config import settings
 from random_stats import generate_random_blobs
+from blob_image_generator import BlobImageGenerator
 
 openai.api_key = settings.openai_api_key
 
@@ -202,6 +203,11 @@ class EnhancedGameState:
         self.current_blob_id = 0
         self.current_society_id = 0
         self.current_year = 0
+
+        self.blob_image_generator = BlobImageGenerator(
+            api_key=settings.openai_api_key,
+            reference_image_path="local_blob_example.png"
+        )
     
     def get_enhanced_system_prompt(self, num_blobs: int) -> Dict[str, str]:
         """
@@ -597,32 +603,19 @@ class EnhancedGameState:
                     blob.add_event(event.year, interaction_type, 
                                   f"Interaction with {other_blob.name}: {impact}")
     
-    def create_image_prompt(self, event: WorldEvent, previous_event: Optional[WorldEvent], 
-                    ) -> str:
+    def create_image_prompt(self, event: WorldEvent, previous_event: Optional[WorldEvent]) -> str:
         """
-        Create a simplified, consistent image prompt focused on the event rather than individual blobs
-        """        
-        # Create a simplified, consistent prompt
-        prompt = (
-            f"A single illustration of blob creatures during '{event.headline}. "
-            #f"{event.details} "
-            f"Style: Colorful cartoon blobs with simple expressive faces, gelatinous bodies in various colors. "
-            f"Scene is bright and whimsical with a fantasy world setting. "
-            f"Focus on capturing the emotion and action of the event rather than individual blob details. "
-            f"No text, no comic panels, just one cohesive scene with vibrant colors and clean outlines."
+        Create a consistent image prompt based on reference blob style
+        """
+        # Use our new generator to create a consistent prompt
+        return self.blob_image_generator.create_event_image_prompt(
+            event_headline=event.headline,
+            event_details=event.details
         )
-        
-        # Ensure prompt isn't too long
-        if len(prompt) > 800:
-            prompt = prompt[:797] + "..."
-
-        print(f"Image prompt for event '{event.headline}': {prompt}")
-            
-        return prompt
 
     def generate_event_image(self, event: WorldEvent):
         """
-        Generate a comic-style illustrative image for the event using LLM to create context
+        Generate a comic-style illustrative image for the event using consistent blob style
         """
         # Get previous event for context if it exists
         previous_event = None
@@ -631,23 +624,19 @@ class EnhancedGameState:
         if current_index > 0:
             previous_event = self.world_events[current_index - 1]
         
-        # Get information about involved blobs
-        #involved_blob_ids = list(event.impacts.keys())
-        #involved_blobs = []
-        
-        #for blob_id in involved_blob_ids[:5]:  # Limit to 5 blobs to keep prompt manageable
-        #    blob = next((b for b in self.blobs if b.blob_id == blob_id), None)
-        #    if blob:
-        #        involved_blobs.append(blob)
-        
         # Create prompt for the image description
         prompt = self.create_image_prompt(event, previous_event)
         
-        # Generate the image
-        urls = OpenAIClient.generate_image(prompt=prompt, n=1, size="1024x1024")
+        # Generate the image using our blob image generator
+        urls = self.blob_image_generator.generate_image(
+            prompt=prompt, 
+            n=1, 
+            size="1024x1024"
+        )
+        
         if urls:
             event.image_url = urls[0]
-            print(f"Generated comic-style image for event: {event.image_url}")
+            print(f"Generated consistent blob-style image for event: {event.image_url}")
             return event.image_url
         return None
     
@@ -719,7 +708,9 @@ if __name__ == "__main__":
     
     # Submit a policy proposition
     print("\nSubmitting policy proposition...")
-    result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
+    #result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
+    #result = game_state.policy_proposition("Too much trash is piling up in the blob world.")
+    result = game_state.policy_proposition("The blobs face a disagreemnt over blob hats and are building a huge wall.")
     print(f"Result: {result}...")
     
     # Run another iteration
