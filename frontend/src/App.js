@@ -60,7 +60,8 @@ function HeadlineTicker({ headlines }) {
       color: "white",
       fontSize: "1.2rem",
       padding: "10px 0",
-      marginTop: "20px",
+      // marginTop: "20px",
+      marginBottom:"10px",
       position: "relative"
     }}>
       <div
@@ -143,7 +144,7 @@ function App() {
         <Canvas
           
           camera={{ position: [-0.0, 7.3156, 7.0145], fov: 50 }}
-          style={{ width: "70vw", height: "70vh", overflow: "hidden" }}
+          style={{ width: "100%", height: "65vh", overflow: "hidden" }}
         > 
         <LogCamera/>
           <Html
@@ -231,14 +232,14 @@ function App() {
             }}
           />
         </div>
-        <div style={{"display":"flex", direction:"row"}}>
+        {/* <div style={{"display":"flex", direction:"row"}}>
           <button onClick={() => handleMoveBlob(blobRef1)}>
           <h1>Move Hotpink Blob</h1>
         </button>
         <button onClick={() => handleMoveBlob(blobRef2)}>
           <h1>Move Cyan Blob</h1>
         </button>
-        </div>
+        </div> */}
       </div>
     </div>
   );
