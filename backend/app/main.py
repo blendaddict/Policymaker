@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query, Path, Body
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import List, Dict, Optional, Any
 from app.blob_sim import EnhancedGameState  # Using the correct class from your paste.txt
 
@@ -8,6 +8,13 @@ from app.blob_sim import EnhancedGameState  # Using the correct class from your 
 class InitializeRequest(BaseModel):
     num_blobs: int = Field(..., description="Number of blobs to initialize", gt=0)
     num_societies: int = Field(3, description="Number of societies to create")
+    
+    # Add validator to prevent resource exhaustion
+    @validator('num_blobs')
+    def check_reasonable_blobs(cls, v):
+        if v > 50:  # Prevent creating too many blobs
+            raise ValueError("Maximum number of blobs is 50")
+        return v
 
 class PolicyRequest(BaseModel):
     proposal: str = Field(..., description="Policy proposal text")
@@ -75,6 +82,11 @@ async def root():
         ]
     }
 
+@app.get("/health", tags=["General"])
+async def health_check():
+    """Basic health check endpoint."""
+    return {"status": "healthy", "initialized": len(game_state.blobs) > 0}
+
 @app.post("/initialize", tags=["Simulation Control"], response_model=Dict[str, Any])
 async def initialize(request: InitializeRequest):
     """
@@ -113,9 +125,13 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
         if not event:
             raise HTTPException(status_code=500, detail="Failed to generate a valid event")
         
+        # Get the current metrics
+        metrics = game_state.get_metrics()
+        
         return {
             "status": "Iteration completed",
             "current_year": game_state.current_year,
+            "metrics": metrics,  # Include world metrics
             "event": {
                 "year": event.year,
                 "headline": event.headline,
@@ -142,6 +158,9 @@ async def propose_policy(request: PolicyRequest):
             temperature=request.temperature
         )
         
+        # Get current metrics
+        metrics = game_state.get_metrics()
+        
         # Get the most recent event (should be the one created by the policy)
         if game_state.world_events:
             event = game_state.world_events[-1]
@@ -159,6 +178,7 @@ async def propose_policy(request: PolicyRequest):
             "status": "Policy proposition processed",
             "result": result,
             "current_year": game_state.current_year,
+            "metrics": metrics,  # Include world metrics
             "event": event_data
         }
     except Exception as e:
@@ -352,9 +372,9 @@ async def get_event(event_index: int = Path(..., description="The index of the e
                 impacts_with_names[f"{blob.name} (ID: {blob_id})"] = impact
             else:
                 impacts_with_names[f"Blob ID: {blob_id}"] = impact
-        except ValueError:
+        except (ValueError, TypeError):
             # If blob_id can't be converted to int, just use it as is
-            impacts_with_names[blob_id] = impact
+            impacts_with_names[str(blob_id)] = impact
     
     return {
         "index": event_index,
@@ -362,8 +382,17 @@ async def get_event(event_index: int = Path(..., description="The index of the e
         "headline": event.headline,
         "details": event.details,
         "impacts": impacts_with_names,
-        "image_url": event.image_url
+        "image_url": event.image_url,
+        "society_relations": event.society_relations if hasattr(event, 'society_relations') else {}
     }
+
+@app.get("/relations", tags=["Information"])
+async def get_society_relations():
+    """Get a comprehensive report of relations between societies."""
+    if not game_state.societies:
+        raise HTTPException(status_code=400, detail="No societies found. Initialize the game first.")
+    
+    return {"relations_report": game_state.get_society_relations_report()}
 
 # Helper function to convert relationship scores to status text
 def get_relationship_status(score: float) -> str:

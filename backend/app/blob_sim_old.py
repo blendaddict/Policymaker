@@ -4,9 +4,9 @@ import json
 import time
 import random
 from typing import List, Dict, Any, Optional, Tuple
-from app.config import settings
-from app.random_stats import generate_random_blobs
-from app.blob_image_generator import BlobImageGenerator
+from config import settings
+from random_stats import generate_random_blobs
+from blob_image_generator import BlobImageGenerator
 
 openai.api_key = settings.openai_api_key
 
@@ -126,93 +126,18 @@ class Blob:
         """Join a society"""
         self.society_id = society_id
 
-class WorldMetrics:
-    """
-    Represents global metrics for the simulation world
-    """
-    def __init__(self):
-        # Initialize all metrics with neutral values (0.5 on a 0-1 scale)
-        self.metrics = {
-            "happiness": 0.5,
-            "safety": 0.5,
-            "environment_cleanliness": 0.5,
-            "trust_in_government": 0.5,
-            "health": 0.5,
-            "education": 0.5,
-            "poverty": 0.5  # Note: higher means MORE poverty (worse)
-        }
-        self.history = {metric: [] for metric in self.metrics}
-    
-    def update_metric(self, metric_name: str, change_type: str):
-        """Update a metric based on change type"""
-        if metric_name not in self.metrics:
-            print(f"Warning: Unknown metric '{metric_name}'")
-            return
-            
-        # Use the same change values as society relations
-        delta = RELATION_CHANGES[change_type]
-        current = self.metrics[metric_name]
-        
-        # Ensure metrics stay within 0.0 to 1.0 range
-        self.metrics[metric_name] = max(0.0, min(1.0, current + delta))
-        
-        # Record the new value in history
-        self.history[metric_name].append(self.metrics[metric_name])
-    
-    def get_metrics(self) -> Dict[str, float]:
-        """Get a copy of the current metrics"""
-        return self.metrics.copy()
-
-    def get_summary(self) -> str:
-        """Format metrics as a readable string"""
-        result = "WORLD METRICS:\n"
-        
-        for metric, value in self.metrics.items():
-            # Format the metric name for display
-            display_name = metric.replace('_', ' ').title()
-            
-            # Convert numeric value to qualitative description
-            description = "Medium"
-            if value >= 0.8:
-                description = "Very High"
-            elif value >= 0.6:
-                description = "High"
-            elif value <= 0.2:
-                description = "Very Low"
-            elif value <= 0.4:
-                description = "Low"
-                
-            # Special case for poverty where the meaning is reversed
-            if metric == "poverty":
-                if description == "Very High":
-                    description = "Severe Crisis"
-                elif description == "High":
-                    description = "Significant Problem"
-                elif description == "Medium":
-                    description = "Moderate Issue"
-                elif description == "Low":
-                    description = "Minor Concern"
-                elif description == "Very Low":
-                    description = "Minimal"
-                
-            result += f"- {display_name}: {description} ({value:.2f})\n"
-            
-        return result
 
 class WorldEvent:
     """
     Represents a significant event in the simulation
     """
-    def __init__(self, year: int, headline: str, details: str, impacts: Dict[int, str], 
-                 society_relations: Dict[str, str] = None, world_metrics: Dict[str, str] = None):
+    def __init__(self, year: int, headline: str, details: str, impacts: Dict[int, str], society_relations: Dict[str, str] = None):
         self.year = year
         self.headline = headline
         self.details = details
         self.impacts = impacts  # Dict mapping blob_id to impact description
         self.society_relations = society_relations or {}  # Dict mapping 'society_id1-society_id2' to relation change
-        self.world_metrics = world_metrics or {}  # Dict mapping metric name to change type
         self.image_url: Optional[str] = None
-        self.metrics_headline: str = ""  # Internal headline based only on world metrics
     
     def __repr__(self):
         return f"WorldEvent(year={self.year}, headline='{self.headline}')"
@@ -237,17 +162,8 @@ class WorldEvent:
             if relations_list:
                 relations_str = "\n\nSociety Relations:\n" + "\n".join([f"- {rel}" for rel in relations_list])
         
-        # Add world metrics if any exist
-        metrics_str = ""
-        if self.world_metrics:
-            metrics_list = []
-            for metric, change in self.world_metrics.items():
-                metrics_list.append(f"{metric.replace('_', ' ').title()}: {change}")
-                    
-            if metrics_list:
-                metrics_str = "\n\nWorld Metrics:\n" + "\n".join([f"- {m}" for m in metrics_list])
-        
-        return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}{metrics_str}"
+        return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}"
+
 
 class EnhancedGameState:
     """
@@ -262,16 +178,10 @@ class EnhancedGameState:
         self.current_society_id = 0
         self.current_year = 0
 
-        self.world_metrics = WorldMetrics()
-
         self.blob_image_generator = BlobImageGenerator(
             api_key=settings.openai_api_key
         )
-
-    def get_metrics(self) -> Dict[str, float]:
-        """Get a copy of the current metrics"""
-        return self.world_metrics.get_metrics()
-
+    
     def get_enhanced_system_prompt(self, num_blobs: int) -> Dict[str, str]:
         """
         Create an improved system prompt with clearer instructions
@@ -287,8 +197,7 @@ class EnhancedGameState:
                 f"2. Consider how blob personalities and society values affect decisions\n"
                 f"3. Introduce realistic conflicts, friendships, and developments\n"
                 f"4. Balance randomness with logical consequences\n"
-                f"5. Track how relations between ALL societies change over time\n"
-                f"6. Track how global world metrics change based on events\n\n"
+                f"5. Track how relations between societies change over time\n\n"
                 f"RESPOND IN JSON FORMAT ONLY with the following structure:\n"
                 f"```json\n"
                 f"{{\n"
@@ -297,84 +206,23 @@ class EnhancedGameState:
                 f"  \"details\": \"Detailed description of what happened\",\n"
                 f"  \"impacts\": {{\n"
                 f"    \"blob_1\": \"Impact on Blob-1\",\n"
-                f"    \"blob_2\": \"Impact on Blob-2\",\n"
-                f"    \"blob_3\": \"Impact on Blob-3\",\n"
-                f"    \"etc\": \"Include impacts for ALL significantly affected blobs\"\n"
+                f"    \"blob_2\": \"Impact on Blob-2\"\n"
                 f"  }},\n"
                 f"  \"society_relations\": [\n"
                 f"    {{\n"
                 f"      \"society1\": 0,\n"
                 f"      \"society2\": 1,\n"
                 f"      \"change\": \"increase\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"society1\": 0,\n"
-                f"      \"society2\": 2,\n"
-                f"      \"change\": \"decrease\"\n"
-                f"    }}\n"
-                f"  ],\n"
-                f"  \"world_metrics\": [\n"
-                f"    {{\n"
-                f"      \"metric\": \"happiness\",\n"
-                f"      \"change\": \"increase\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"metric\": \"safety\",\n"
-                f"      \"change\": \"decrease\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"metric\": \"environment_cleanliness\",\n"
-                f"      \"change\": \"big_decrease\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"metric\": \"trust_in_government\",\n"
-                f"      \"change\": \"none\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"metric\": \"health\",\n"
-                f"      \"change\": \"increase\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"metric\": \"education\",\n"
-                f"      \"change\": \"big_increase\"\n"
-                f"    }},\n"
-                f"    {{\n"
-                f"      \"metric\": \"poverty\",\n"
-                f"      \"change\": \"decrease\"\n"
                 f"    }}\n"
                 f"  ]\n"
                 f"}}\n"
                 f"```\n\n"
-                f"For both society_relations and world_metrics, use only these change values: \"big_decrease\", \"decrease\", \"none\", \"increase\", or \"big_increase\".\n"
-                f"IMPORTANT: Include ALL impacts, ALL society relation changes, and ALL world metrics in EACH response.\n"
-                f"For metrics that don't change significantly, use 'none' as the change value, but still include them.\n"
+                f"For society_relations, use only these change values: \"big_decrease\", \"decrease\", \"none\", \"increase\", or \"big_increase\".\n"
                 f"Keep total response under 900 characters. Be creative but consistent. Return only valid JSON."
             )
         }
+
     
-
-    def update_world_metrics(self, event: WorldEvent):
-        """Update world metrics based on the event's metric changes"""
-        if not event.world_metrics:
-            return
-                
-        print(f"Updating world metrics for event: {event.headline}")
-        
-        for metric_name, change_type in event.world_metrics.items():
-            try:
-                old_value = self.world_metrics.metrics.get(metric_name, 0.5)
-                self.world_metrics.update_metric(metric_name, change_type)
-                new_value = self.world_metrics.metrics.get(metric_name, 0.5)
-                
-                # Log the changes
-                print(f"  {metric_name.replace('_', ' ').title()}: {old_value:.2f} -> {new_value:.2f} ({change_type})")
-            except Exception as e:
-                print(f"Error updating metric {metric_name}: {str(e)}")
-        
-        # Generate and set the metrics headline
-        event.metrics_headline = self.generate_metrics_headline(event)
-        print(f"Internal metrics headline: {event.metrics_headline}")
-
     def generate_societies(self, num_societies: int) -> List[Society]:
         """Generate societies with distinct ideologies and values"""
         prompt = (
@@ -597,7 +445,7 @@ class EnhancedGameState:
             events_to_show = [self.world_events[0]] + self.world_events[-(max_events-1):]
         
         return "\n\n".join([event.to_string() for event in events_to_show])
-
+    
     def parse_event_from_response(self, response: str) -> Optional[WorldEvent]:
         """Parse a structured event from the AI response"""
         try:
@@ -673,42 +521,7 @@ class EnhancedGameState:
                     relation_key = f"{society1}-{society2}"
                     society_relations[relation_key] = change_type
                 
-                # Extract world metrics
-                world_metrics = {}
-                metrics_data = event_data.get('world_metrics', [])
-                valid_metrics = ["happiness", "safety", "environment_cleanliness", 
-                                "trust_in_government", "health", "education", "poverty"]
-                
-                for metric_data in metrics_data:
-                    metric_name = metric_data.get('metric', '').lower().strip()
-                    change_type = metric_data.get('change', 'none')
-                    
-                    # Normalize metric names
-                    metric_name = metric_name.replace(' ', '_')
-                    
-                    # Skip if not a valid metric
-                    if metric_name not in valid_metrics:
-                        continue
-                    
-                    # Normalize change type
-                    if "big_decrease" in change_type:
-                        change_type = "big_decrease"
-                    elif "decrease" in change_type:
-                        change_type = "decrease"
-                    elif "none" in change_type or "neutral" in change_type:
-                        change_type = "none"
-                    elif "big_increase" in change_type:
-                        change_type = "big_increase"
-                    elif "increase" in change_type:
-                        change_type = "increase"
-                    else:
-                        # Default to no change if we can't parse
-                        change_type = "none"
-                    
-                    # Store metric change
-                    world_metrics[metric_name] = change_type
-                
-                return WorldEvent(year, headline, details, impacts, society_relations, world_metrics)
+                return WorldEvent(year, headline, details, impacts, society_relations)
             
             except json.JSONDecodeError as e:
                 print(f"Failed to parse JSON: {str(e)}")
@@ -716,8 +529,83 @@ class EnhancedGameState:
         
         except Exception as e:
             print(f"Error parsing event: {str(e)}")
-            return None    
-
+            # Fallback to the old parsing method if JSON parsing fails
+            try:
+                # Extract year
+                year_match = re.search(r"\[YEAR\]:\s*(\d+)", response)
+                headline_match = re.search(r"\[HEADLINE\]:\s*(.*?)(\n|$)", response)
+                details_match = re.search(r"\[DETAILS\]:\s*(.*?)(\n\[|$)", response, re.DOTALL)
+                impacts_match = re.search(r"\[IMPACTS\]:\s*(.*?)(\n\[|$)", response, re.DOTALL)
+                relations_match = re.search(r"\[RELATIONS\]:\s*(.*?)($)", response, re.DOTALL)
+                
+                if not all([year_match, headline_match, details_match, impacts_match]):
+                    print("Failed to parse event structure from response.")
+                    return None
+                
+                year = int(year_match.group(1))
+                headline = headline_match.group(1).strip()
+                details = details_match.group(1).strip()
+                impacts_text = impacts_match.group(1).strip()
+                
+                # Relations is optional, so we check if it exists
+                relations_text = ""
+                if relations_match:
+                    relations_text = relations_match.group(1).strip()
+                
+                # Parse impacts
+                impacts = {}
+                for i, line in enumerate(impacts_text.split('\n')):
+                    blob_name_match = re.search(r"(.*?):\s*(.*)", line)
+                    blob_id_match = re.search(r"Blob\s+(\d+):\s*(.*)", line)
+                    
+                    if blob_id_match:
+                        blob_id = int(blob_id_match.group(1))
+                        impact = blob_id_match.group(2).strip()
+                        impacts[blob_id] = impact
+                    elif blob_name_match:
+                        name = blob_name_match.group(1).strip()
+                        impact = blob_name_match.group(2).strip()
+                        
+                        blob = next((b for b in self.blobs if b.name.lower() == name.lower()), None)
+                        if blob:
+                            impacts[blob.blob_id] = impact
+                        else:
+                            impacts[100 + i] = f"{name}: {impact}"
+                
+                # Parse society relations
+                society_relations = {}
+                if relations_text:
+                    for line in relations_text.split('\n'):
+                        relation_match = re.search(r"Society-(\d+)\s+and\s+Society-(\d+):\s*(.*)", line)
+                        
+                        if relation_match:
+                            society1 = int(relation_match.group(1))
+                            society2 = int(relation_match.group(2))
+                            change_type = relation_match.group(3).strip().lower()
+                            
+                            # Normalize change type
+                            if "big_decrease" in change_type:
+                                change_type = "big_decrease"
+                            elif "decrease" in change_type:
+                                change_type = "decrease"
+                            elif "none" in change_type or "neutral" in change_type:
+                                change_type = "none"
+                            elif "big_increase" in change_type:
+                                change_type = "big_increase"
+                            elif "increase" in change_type:
+                                change_type = "increase"
+                            else:
+                                change_type = "none"
+                            
+                            relation_key = f"{society1}-{society2}"
+                            society_relations[relation_key] = change_type
+                
+                return WorldEvent(year, headline, details, impacts, society_relations)
+            
+            except Exception as nested_e:
+                print(f"Fallback parsing also failed: {str(nested_e)}")
+                return None
+    
     def update_society_relations(self, event: WorldEvent):
         """Update society relations based on the event's relationship changes"""
         if not event.society_relations:
@@ -763,22 +651,14 @@ class EnhancedGameState:
                 "role": "system",
                 "content": f"Recent world history:\n{history_summary}"
             })
-            
-            # Add current metrics to provide context
-            metrics_summary = self.world_metrics.get_summary()
-            self.message_history.append({
-                "role": "system",
-                "content": f"Current world metrics:\n{metrics_summary}"
-            })
         
         # Add format reminder to the prompt
         format_reminder = {
             "role": "user", 
             "content": (
                 "Advance the simulation by one time period. Return your response as a JSON object "
-                "There should be no new Policy Propositions in this response. Those are only to be proposed by the user."
-                "with fields for year, headline, details, impacts, society_relations, and world_metrics. "
-                "For society_relations and world_metrics, include how they change "
+                "with fields for year, headline, details, impacts, and society_relations. "
+                "For society_relations, include how relations between societies change "
                 "(big_decrease, decrease, none, increase, or big_increase) based on the events."
             )
         }
@@ -805,9 +685,6 @@ class EnhancedGameState:
             # Update society relations based on the event
             self.update_society_relations(event)
             
-            # Update world metrics based on the event
-            self.update_world_metrics(event)
-            
             if create_image:
                 # Generate an image for the event using our LLM-driven method
                 image_url = self.generate_event_image(event)
@@ -820,7 +697,7 @@ class EnhancedGameState:
         else:
             print("Could not parse a valid event from the response")
             return None
-
+    
     def create_image_prompt(self, event: WorldEvent, previous_event: Optional[WorldEvent]) -> str:
         """
         Create a consistent image prompt based on reference blob style
@@ -858,23 +735,15 @@ class EnhancedGameState:
             return event.image_url
         return None
     
-    def policy_proposition(self, proposal: str, temperature: float = 0.7, create_image=True) -> str:
+    def policy_proposition(self, proposal: str, temperature: float = 0.7) -> str:
         """Submit a user policy proposition to the simulation"""
-        # Add current metrics to provide context
-        metrics_summary = self.world_metrics.get_summary()
-        self.message_history.append({
-            "role": "system",
-            "content": f"Current world metrics:\n{metrics_summary}"
-        })
-        
         # Add proposal to message history
         self.message_history.append({
             "role": "user", 
             "content": (
                 f"POLICY PROPOSITION: {proposal}\n\n"
-                f"The lawmaker proposes a new policy to be enacted in the blob world. "
                 f"How does this affect the world of blobs? Return your response as a JSON object "
-                f"with fields for year, headline, details, impacts, society_relations, and world_metrics."
+                f"with fields for year, headline, details, impacts, and society_relations."
             )
         })
         
@@ -891,98 +760,19 @@ class EnhancedGameState:
             # Update society relations based on the event
             self.update_society_relations(event)
             
-            # Update world metrics based on the event
-            self.update_world_metrics(event)
+            # Use our LLM-driven image generation method
+            image_url = self.generate_event_image(event)
             
-            if create_image:
-                # Use our LLM-driven image generation method
-                image_url = self.generate_event_image(event)
-                
-                # Log the successful image generation
-                if image_url:
-                    print(f"Successfully generated comic-style image for policy event: {event.headline}")
+            # Log the successful image generation
+            if image_url:
+                print(f"Successfully generated comic-style image for policy event: {event.headline}")
         
         return resp_text
-
-    def generate_metrics_headline(self, event: WorldEvent) -> str:
-        """Generate a simple headline based only on world metrics changes, showing percentage values"""
-        if not event.world_metrics:
-            return "No significant metric changes"
-        
-        # Find the most significant metric change
-        most_significant = {
-            "metric": None,
-            "change_type": "none",
-            "priority": 0
-        }
-        
-        # Assign priority to different change types
-        change_priority = {
-            "big_increase": 5,
-            "big_decrease": 4,
-            "increase": 3,
-            "decrease": 2,
-            "none": 1
-        }
-        
-        # Find the most significant change
-        for metric_name, change_type in event.world_metrics.items():
-            priority = change_priority.get(change_type, 0)
-            if priority > most_significant["priority"]:
-                most_significant["metric"] = metric_name
-                most_significant["change_type"] = change_type
-                most_significant["priority"] = priority
-        
-        # If we found a significant change, create a headline with the actual percentage
-        if most_significant["metric"] and most_significant["priority"] > 1:
-            metric_name = most_significant["metric"]
-            change_type = most_significant["change_type"]
-            
-            # Get the current metric value
-            metric_value = self.world_metrics.metrics.get(metric_name, 0.5)
-            
-            # Format the metric name for display
-            display_name = metric_name.replace('_', ' ').title()
-            
-            # Create appropriate verb based on change type
-            verb = "stays at"
-            if "increase" in change_type:
-                verb = "rises to"
-            elif "decrease" in change_type:
-                verb = "falls to"
-            
-            # Convert to percentage and create headline
-            percentage = int(metric_value * 100)
-            return f"{display_name} {verb} {percentage}%"
-        
-        return "Metrics Stable"
-
-    def get_world_metrics_report(self) -> str:
-        """Generate a specific report about current world metrics"""
-        metrics_summary = self.world_metrics.get_summary()
-        
-        prompt = (
-            f"Based on the following metrics in year {self.current_year}, "
-            f"provide a brief analysis of the state of the blob world:\n\n"
-            f"{metrics_summary}\n\n"
-            f"Explain how these metrics relate to recent events and what they might mean "
-            f"for the future of blob societies. Keep it under 500 characters."
-        )
-        
-        self.message_history.append({"role": "user", "content": prompt})
-        resp_text = OpenAIClient.ask_gpt(self.message_history, temperature=0.5)
-        self.message_history.append({"role": "assistant", "content": resp_text})
-        
-        return resp_text
-
-    # Update the world status report to include metrics
+    
     def get_world_status_report(self) -> str:
         """Generate a comprehensive status report of the world"""
         blob_names = ", ".join([b.name for b in self.blobs])
         society_ids = ", ".join([f"Society-{s.society_id}" for s in self.societies])
-        
-        # Get current metrics
-        metrics_summary = self.world_metrics.get_summary()
         
         prompt = (
             f"Create a brief status report on the current state of the blob world in year {self.current_year}. "
@@ -991,9 +781,7 @@ class EnhancedGameState:
             f"2. The status of the different societies ({society_ids})\n"
             f"3. Major ongoing friendships, conflicts, or developments\n"
             f"4. The current relations between societies\n"
-            f"5. The state of the world metrics\n\n"
-            f"Current metrics:\n{metrics_summary}\n\n"
-            f"Keep it under 800 characters and focus on the most interesting elements."
+            f"Keep it under 700 characters and focus on the most interesting elements."
         )
         
         self.message_history.append({"role": "user", "content": prompt})
@@ -1001,8 +789,6 @@ class EnhancedGameState:
         self.message_history.append({"role": "assistant", "content": resp_text})
         
         return resp_text
-
-
 
     def get_society_relations_report(self) -> str:
         """Generate a specific report about current society relations"""
@@ -1043,47 +829,39 @@ if __name__ == "__main__":
     
     # Initialize with 5 blobs and personalities
     print("Initializing game with 5 blobs...")
-    game_state.initialize_with_personalities(10)
+    game_state.initialize_with_personalities(5)
     
-    # Simple game loop
-    while True:
-        user_input = input("\nEnter 's' to skip to next iteration or 'p [text]' to make a proposal (q to quit): ")
-        
-        if user_input.lower() == 'q':
-            print("Exiting simulation. Goodbye!")
-            break
-        
-        elif user_input.lower() == 's':
-            print("\nRunning next iteration...")
-            event = game_state.run_iteration(create_image=False)
-            if event:
-                print(f"\nEvent: {event.headline}")
-                print(f"Details: {event.details}")
-                print("Impacts:")
-                for blob_id, impact in event.impacts.items():
-                    print(f"- Blob {blob_id}: {impact}")
-                print("Society Relations:")
-                for relation_key, change in event.society_relations.items():
-                    print(f"- {relation_key}: {change}")
-        
-        elif user_input.lower().startswith('p '):
-            proposal_text = user_input[2:].strip()
-            if proposal_text:
-                print(f"\nSubmitting policy proposition: {proposal_text}")
-                result = game_state.policy_proposition(proposal_text, create_image=False)
-                print(f"Result: {result}")
-            else:
-                print("Please provide policy text after 'p'")
-        
-        elif user_input.lower() == 'status':
-            print("\nGenerating world status report...")
-            status = game_state.get_world_status_report()
-            print(f"Status: {status}")
-        
-        elif user_input.lower() == 'relations':
-            print("\nGenerating society relations report...")
-            relations = game_state.get_society_relations_report()
-            print(f"Relations: {relations}")
-        
-        else:
-            print("Invalid input. Enter 's' to skip, 'p [text]' to propose, 'status' for world status, 'relations' for society relations, or 'q' to quit.")
+    # Run first iteration
+    print("\nRunning first iteration...")
+    event = game_state.run_iteration()
+    if event:
+        print(f"\nEvent: {event.headline}")
+        print(f"Details: {event.details}")
+        print("Impacts:")
+        for blob_id, impact in event.impacts.items():
+            print(f"- Blob {blob_id}: {impact}")
+        print("Society Relations:")
+        for relation_key, change in event.society_relations.items():
+            print(f"- {relation_key}: {change}")
+    
+    # Submit a policy proposition
+    print("\nSubmitting policy proposition...")
+    result = game_state.policy_proposition("A civil war breaks out due to wealth inequality.")
+    print(f"Result: {result}...")
+    
+    # Run another iteration
+    print("\nRunning another iteration...")
+    event = game_state.run_iteration()
+    if event:
+        print(f"\nEvent: {event.headline}")
+        print(f"Details: {event.details}")
+    
+    # Get world status report
+    print("\nGenerating world status report...")
+    status = game_state.get_world_status_report()
+    print(f"Status: {status}")
+    
+    # Get society relations report
+    print("\nGenerating society relations report...")
+    relations = game_state.get_society_relations_report()
+    print(f"Relations: {relations}")
