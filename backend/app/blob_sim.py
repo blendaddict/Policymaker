@@ -113,7 +113,7 @@ class Blob:
         self.personality: str = ""
         self.traits: List[str] = []
         self.relationships: Dict[int, float] = {}  # Maps other blob_ids to relationship scores (-1.0 to 1.0)
-        self.history: List[Dict[str, Any]] = []    # History of significant events for this blob
+        self.history: List[Dict[int, str]] = []    # History of impact events for this blob
         
     def __repr__(self):
         society_info = f", society={self.society_id}" if self.society_id is not None else ""
@@ -301,6 +301,7 @@ class EnhancedGameState:
                 f"They are currently facing a crisis concerning their environment because they are producing too much waste. "
                 f"There are multiple factories which are provding the Blobs with jobs and wealth, but they are also polluting the environment. "
                 f"Owners and managers of the factories are blobs too, and they are trying to convince the blobs that the pollution is not a problem. "
+                f"The workers blobs which are a majority are just trying to make a living and are not fond of solutions that would put their jobs at risk or lower their standard of living. "
                 f"The user can provide policies to help blobs solve their problems and the problem of too much waste."
                 f"Blobs are gelatinous beings with personalities, traits, and social connections. "
                 f"They form societies based on shared values and ideologies.\n\n"
@@ -758,6 +759,34 @@ class EnhancedGameState:
             print(f"Error parsing event: {str(e)}")
             return None
 
+    def update_blob_histories(self, event: WorldEvent):
+        """Update individual blob histories with impacts from an event"""
+        if not event.impacts:
+            return
+            
+        print(f"Updating blob histories for event: {event.headline}")
+        
+        for blob_id_str, impact in event.impacts.items():
+            try:
+                # Convert blob_id to int if it's a string
+                blob_id = int(blob_id_str) if isinstance(blob_id_str, str) else blob_id_str
+                
+                # Find the blob
+                blob = next((b for b in self.blobs if b.blob_id == blob_id), None)
+                
+                if blob:
+                    # Add the event to the blob's history
+                    blob.add_event(
+                        year=event.year,
+                        event_type="world_event",
+                        description=impact
+                    )
+                    print(f"  Added impact to {blob.name}'s history: {impact}")
+                else:
+                    print(f"  Warning: Could not find blob with ID {blob_id}")
+            except Exception as e:
+                print(f"Error updating history for blob {blob_id_str}: {str(e)}")
+
     def update_society_relations(self, event: WorldEvent):
         """Update society relations based on the event's relationship changes"""
         if not event.society_relations:
@@ -851,6 +880,9 @@ class EnhancedGameState:
             # Update world metrics based on the event
             self.update_world_metrics(event)
             
+            # Update blob histories with impacts
+            self.update_blob_histories(event)
+            
             if create_image:
                 # Generate an image for the event using our LLM-driven method
                 image_url = self.generate_event_image(event)
@@ -900,7 +932,7 @@ class EnhancedGameState:
             print(f"Generated consistent blob-style image for event: {event.image_url}")
             return event.image_url
         return None
-    
+
     def policy_proposition(self, proposal: str, temperature: float = 0.7, create_image=True) -> str:
         """Submit a user policy proposition to the simulation"""
         # Add current metrics to provide context
@@ -938,6 +970,9 @@ class EnhancedGameState:
             # Update world metrics based on the event
             self.update_world_metrics(event)
             
+            # Update blob histories with impacts
+            self.update_blob_histories(event)
+            
             if create_image:
                 # Use our LLM-driven image generation method
                 image_url = self.generate_event_image(event)
@@ -946,7 +981,7 @@ class EnhancedGameState:
                 if image_url:
                     print(f"Successfully generated comic-style image for policy event: {event.headline}")
         
-        return resp_text
+        return resp_text    
 
     def generate_metrics_headline(self, event: WorldEvent) -> str:
         """Generate a simple headline based only on world metrics changes, showing percentage values"""

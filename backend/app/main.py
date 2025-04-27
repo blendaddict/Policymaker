@@ -28,6 +28,7 @@ class BlobResponse(BaseModel):
     traits: List[str]
     properties: Dict[str, Any]
     image_url: Optional[str]
+    history: Optional[List[Dict[str, Any]]] = None
 
 class SocietyResponse(BaseModel):
     society_id: int
@@ -129,6 +130,19 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
         
         # Get the current metrics
         metrics = game_state.get_metrics()
+
+        hacked_impact_string_dict = {}
+        #loop over all blobs
+        for blob in game_state.blobs:
+            blob_id = blob.blob_id
+            temp_str = blob.personality + "\nHistory of Impacts:\n"
+            #now add the history to the string
+            if blob.history:
+                for history in blob.history:
+                    temp_str += f"Iteration - {history['year']}: {history['description']}\n"
+            else:
+                temp_str += "No history available for this blob.\n"
+            hacked_impact_string_dict[blob_id] = temp_str
         
         return {
             "status": "Iteration completed",
@@ -140,7 +154,7 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
                 "subheadlines": event.subheadlines,
                 "headline_metrics": event.metrics_headline,
                 "details": event.details,
-                "impacts": event.impacts,
+                "impacts": hacked_impact_string_dict,
                 "image_url": event.image_url
             }
         }
@@ -177,6 +191,19 @@ async def propose_policy(request: PolicyRequest):
         
         # Get current metrics
         metrics = game_state.get_metrics()
+
+        hacked_impact_string_dict = {}
+        #loop over all blobs
+        for blob in game_state.blobs:
+            blob_id = blob.blob_id
+            temp_str = blob.personality + "\nHistory of Impacts:\n"
+            #now add the history to the string
+            if blob.history:
+                for history in blob.history:
+                    temp_str += f"Iteration - {history['year']}: {history['description']}\n"
+            else:
+                temp_str += "No history available for this blob.\n"
+            hacked_impact_string_dict[blob_id] = temp_str
         
         # Get the most recent event (should be the one created by the policy)
         if game_state.world_events:
@@ -187,7 +214,7 @@ async def propose_policy(request: PolicyRequest):
                 "subheadlines": event.subheadlines,
                 "headline_metrics": event.metrics_headline,
                 "details": event.details,
-                "impacts": event.impacts,
+                "impacts": hacked_impact_string_dict,
                 "image_url": event.image_url
             }
         else:
@@ -236,7 +263,8 @@ async def get_blobs():
             personality=blob.personality,
             traits=blob.traits,
             properties=blob.properties,
-            image_url=blob.image_url
+            image_url=blob.image_url,
+            history = blob.history
         )
         for blob in game_state.blobs
     ]
