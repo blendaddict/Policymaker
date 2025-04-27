@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Blob, floorLevel } from "./components/Blob";
 import { Platform } from "./components/Platform";
-import { OrbitControls, Html } from "@react-three/drei";
+import { OrbitControls, Html , Billboard } from "@react-three/drei";
 import { ImportedMesh } from "./components/ImportedMesh";
 import { Sky} from "@react-three/drei";
 import {
@@ -88,7 +88,7 @@ function App() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [headlines, setHeadlines] = useState([]);
   const [metrics, setMetrics] = useState({});
-
+  
   const setStoryPopUp = (s) => {
     setStory(s);
     setPopupOpen(true);
@@ -136,18 +136,23 @@ function App() {
         </Box>
 
         {gameStarted ? (
-          <Canvas camera={{ position: [-0.0, 2, 10], fov: 50 }} style={{ width: "100%", height: "65vh" }}>
+          <Canvas camera={{ position: [-0.0, 2, 10], fov: 50 }} style={{ width: "100%", height: "65vh" }} onCreated={({ gl }) => {
+            gl.toneMappingExposure = 0.5;   // matches your “exposure” slider
+          }}>
+            <ambientLight intensity={0.6} />
             <Sky
-              distance={40000}
-              turbidity={2}      // low haze – crisp summer air
-              rayleigh={2}
-              mieCoefficient={0.01}
-              mieDirectionalG={0.8}
-              inclination={0.15} // gentle tilt so sun is slightly off-zenith
-              azimuth={0.2}
-            />
+            distance={450000} // Default
+            sunPosition={[5, 1, 8]} // Where the sun is in the sky
+            inclination={0} // Angle of the sun (0 = directly above)
+            azimuth={0.75} // Sun’s horizontal angle
+            turbidity={2} // Atmosphere thickness
+            rayleigh={2} // Blueishness
+            mieCoefficient={0.005} // Atmosphere dust
+            mieDirectionalG={0.8} // Focus of the light
+          />
+
             <Html
-              position={[-3, 4, -5]}
+              position={[-3.5, 4.5, -5]}
               style={{
                 color: "white",
                 background: "rgba(0,0,0,0.5)",
@@ -158,8 +163,8 @@ function App() {
                 pointerEvents: "none",
               }}
               transform
-              occlude
-              zIndexRange={[1000, 0]} 
+              occlude="raycast"
+              zIndexRange={[1000, -100]} 
             >
               <div>
                 <strong>Blobtopia</strong>
@@ -190,6 +195,8 @@ function App() {
               minPolarAngle={0}
               maxAzimuthAngle={Math.PI / 6}
               minAzimuthAngle={-Math.PI / 6}
+              minDistance={5}           // don’t zoom closer than 5 units
+              maxDistance={10}   
             />
 
             {Array.from({ length: numBlobs }).map((_, i) => (
