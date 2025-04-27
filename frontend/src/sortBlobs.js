@@ -9,7 +9,7 @@ const properties = {
     "Income": ['Less than $25,000', '$25,000 to $34,999', '$35,000 to $49,999', '$50,000 to $74,999', '$75,000 to $99,999', '$100,000 to $124,999', '$125,000 to $149,999', '$150,000 to $174,999', '$175,000 to $199,999', '$200,000 to $249,999', '$250,000 or more'],
     "Neighborhood": ['Urban', 'Suburban', 'Rural'],
     "Political Ideology": ['Extremely Liberal', 'Liberal', 'Slightly Liberal', 'Moderate', 'Slightly conservative', 'Conservative', 'Extremely conservative'],
-    "Polticial Party Preference": ['Strong Democrat', 'Democrat', 'Independent, close to Dem.', 'Independent', 'Independent, close to Rep.', 'Republican', 'Strong Republican', 'Other'],
+    "Political Party Preference": ['Strong Democrat', 'Democrat', 'Independent, close to Dem.', 'Independent', 'Independent, close to Rep.', 'Republican', 'Strong Republican', 'Other'],
     "Marital Status": ['Single', 'Married', 'Separated', 'Divorced', 'Widowed'],
     "Employment Status": ['Employed', 'Unemployed', 'Student', 'Retired', 'Self-employed']
 }
