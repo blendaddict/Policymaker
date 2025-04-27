@@ -218,7 +218,15 @@ async def propose_policy(request: PolicyRequest):
                 "image_url": event.image_url
             }
         else:
-            event_data = None
+            event_data = {
+                "year": game_state.current_year,
+                "headline": "Nice day in Blobtopia",
+                "subheadlines": [],
+                "headline_metrics": "Environment cleanliness stable",
+                "details": "No events have occurred yet.",
+                "impacts": hacked_impact_string_dict,
+                "image_url": None
+            }
         
         return {
             "status": "Policy proposition processed",
