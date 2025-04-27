@@ -7,6 +7,7 @@ import { ImportedMesh } from "./components/ImportedMesh";
 import { Sky} from "@react-three/drei";
 import {
   initialize,
+  getBlobInformation,
   getWorldMetrics,
   wait,
   proposePolicy,
@@ -17,6 +18,8 @@ import LinearProgress from "@mui/material/LinearProgress";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
 import HistoryEduIcon from "@mui/icons-material/HistoryEdu";
+import { SortingDropdown } from './components/SortingDropdown'
+import { sortBlobs } from './sortBlobs'
 import { IconButton } from "@mui/material";
 import StoryPopup from "./components/StoryPopUp";
 
@@ -79,7 +82,6 @@ function App() {
   const blobRefs = useRef([]);
   const [initializeDict, setInitializeDict] = useState({});
   const numBlobs = initializeDict.blobs?.length || 0;
-
   const [blobStories, setBlobStories] = useState(new Map());
   const [gameStarted, setGameStarted] = useState(false);
   const [goalReached, setGoalReached] = useState(50);
@@ -88,6 +90,10 @@ function App() {
   const [popupOpen, setPopupOpen] = useState(false);
   const [headlines, setHeadlines] = useState([]);
   const [metrics, setMetrics] = useState({});
+  
+  function sortBlobsByCriterion(category) {
+    getBlobInformation().then(b =>sortBlobs(b, blobRefs, category))
+  }
   
   const setStoryPopUp = (s) => {
     setStory(s);
@@ -134,7 +140,6 @@ function App() {
         <Box sx={{ width: "60%" }}>
           <LinearProgress variant="determinate" value={goalReached} />
         </Box>
-
         {gameStarted ? (
           <Canvas camera={{ position: [-0.0, 2, 10], fov: 50 }} style={{ width: "100%", height: "65vh" }} onCreated={({ gl }) => {
             gl.toneMappingExposure = 0.5;   // matches your “exposure” slider
@@ -189,7 +194,7 @@ function App() {
               scale={[0.2, 0.25, 0.2]}
               rotation={[0, -Math.PI / 2, 0]}
             />
-
+           
             <OrbitControls
               maxPolarAngle={Math.PI / 2 + Math.PI / 9}
               minPolarAngle={0}
@@ -229,7 +234,7 @@ function App() {
         )}
 
         <HeadlineTicker headlines={Array(100).fill(headlines).flat()} />
-
+        <SortingDropdown callback={sortBlobsByCriterion} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-evenly", width: "50%" }}>
           <Button
             variant="outlined"
