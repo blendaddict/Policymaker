@@ -29,21 +29,33 @@ class OpenAIClient:
                 presence_penalty: float = 0.0, 
                 frequency_penalty: float = 0.3,
                 max_retries: int = 3,
-                retry_delay: int = 2) -> str:
+                retry_delay: int = 2,
+                return_json: bool = False) -> str:
         """
         Enhanced version of ask_openai with better parameter control and error handling
         """
         attempt = 0
         while attempt < max_retries:
             try:
-                response = openai.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=messages,
-                    temperature=temperature,           # Controls randomness (0-1)
-                    top_p=top_p,                       # Nucleus sampling parameter
-                    presence_penalty=presence_penalty, # Penalize new topics (-2 to 2)
-                    frequency_penalty=frequency_penalty, # Penalize repetition (-2 to 2)
-                )
+                if return_json:
+                    response = openai.chat.completions.create(
+                        model="gpt-4o",
+                        messages=messages,
+                        temperature=temperature,           # Controls randomness (0-1)
+                        top_p=top_p,                       # Nucleus sampling parameter
+                        presence_penalty=presence_penalty, # Penalize new topics (-2 to 2)
+                        frequency_penalty=frequency_penalty, # Penalize repetition (-2 to 2)
+                        response_format={ "type": "json_object" }
+                    )
+                else:
+                    response = openai.chat.completions.create(
+                        model="gpt-4o",
+                        messages=messages,
+                        temperature=temperature,           # Controls randomness (0-1)
+                        top_p=top_p,                       # Nucleus sampling parameter
+                        presence_penalty=presence_penalty, # Penalize new topics (-2 to 2)
+                        frequency_penalty=frequency_penalty, # Penalize repetition (-2 to 2)
+                    )
                 return response.choices[0].message.content
             except Exception as e:
                 attempt += 1
@@ -133,11 +145,11 @@ class WorldMetrics:
     def __init__(self):
         # Initialize all metrics with neutral values (0.5 on a 0-1 scale)
         self.metrics = {
-            "happiness": 0.5,
+            "happiness": 0.2,
             "safety": 0.5,
-            "environment_cleanliness": 0.5,
-            "trust_in_government": 0.5,
-            "health": 0.5,
+            "environment_cleanliness": 0.1,
+            "trust_in_government": 0.3,
+            "health": 0.2,
             "education": 0.5,
             "poverty": 0.5  # Note: higher means MORE poverty (worse)
         }
@@ -213,6 +225,7 @@ class WorldEvent:
         self.world_metrics = world_metrics or {}  # Dict mapping metric name to change type
         self.image_url: Optional[str] = None
         self.metrics_headline: str = ""  # Internal headline based only on world metrics
+        self.subheadlines: List[str] = []  # Fun, quirky subheadlines
     
     def __repr__(self):
         return f"WorldEvent(year={self.year}, headline='{self.headline}')"
@@ -247,7 +260,12 @@ class WorldEvent:
             if metrics_list:
                 metrics_str = "\n\nWorld Metrics:\n" + "\n".join([f"- {m}" for m in metrics_list])
         
-        return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}{metrics_str}"
+        # Add subheadlines if they exist
+        subheadlines_str = ""
+        if hasattr(self, 'subheadlines') and self.subheadlines:
+            subheadlines_str = "\n\nIn Other News:\n" + "\n".join([f"- {headline}" for headline in self.subheadlines])
+        
+        return f"Year {self.year}: {self.headline}\n{self.details}\n\nImpacts:\n{impact_str}{relations_str}{metrics_str}{subheadlines_str}"
 
 class EnhancedGameState:
     """
@@ -280,21 +298,33 @@ class EnhancedGameState:
             "role": "system",
             "content": (
                 f"You are simulating a political evolution game in a fantasy world with {num_blobs} blob creatures. "
+                f"They are currently facing a crisis concerning their environment because they are producing too much waste. "
+                f"There are multiple factories which are provding the Blobs with jobs and wealth, but they are also polluting the environment. "
+                f"Owners and managers of the factories are blobs too, and they are trying to convince the blobs that the pollution is not a problem. "
+                f"The user can provide policies to help blobs solve their problems and the problem of too much waste."
                 f"Blobs are gelatinous beings with personalities, traits, and social connections. "
                 f"They form societies based on shared values and ideologies.\n\n"
                 f"SIMULATION RULES:\n"
                 f"1. Maintain consistency with previous events and blob characteristics\n"
-                f"2. Consider how blob personalities and society values affect decisions\n"
+                f"2. Consider how blob personalities and society values affect decisions and reactions to new policies\n"
                 f"3. Introduce realistic conflicts, friendships, and developments\n"
                 f"4. Balance randomness with logical consequences\n"
                 f"5. Track how relations between ALL societies change over time\n"
                 f"6. Track how global world metrics change based on events\n\n"
+                f"[no prose]"
                 f"RESPOND IN JSON FORMAT ONLY with the following structure:\n"
                 f"```json\n"
                 f"{{\n"
                 f"  \"year\": {self.current_year + 1},\n"
                 f"  \"headline\": \"Brief headline of main event\",\n"
                 f"  \"details\": \"Detailed description of what happened\",\n"
+                f"  \"subheadlines\": [\n"
+                f"    \"Fun quirky subheadline 1\",\n"
+                f"    \"Fun quirky subheadline 2\",\n"
+                f"    \"Fun quirky subheadline 3\",\n"
+                f"    \"Fun quirky subheadline 4\",\n"
+                f"    \"Fun quirky subheadline 5\"\n"
+                f"  ],\n"
                 f"  \"impacts\": {{\n"
                 f"    \"blob_1\": \"Impact on Blob-1\",\n"
                 f"    \"blob_2\": \"Impact on Blob-2\",\n"
@@ -624,6 +654,11 @@ class EnhancedGameState:
                 headline = event_data.get('headline', 'Unknown Event')
                 details = event_data.get('details', 'No details available')
                 
+                # Extract subheadlines
+                subheadlines = event_data.get('subheadlines', [])
+                if not isinstance(subheadlines, list):
+                    subheadlines = []
+                
                 # Extract impacts
                 impacts = {}
                 impact_data = event_data.get('impacts', {})
@@ -708,7 +743,12 @@ class EnhancedGameState:
                     # Store metric change
                     world_metrics[metric_name] = change_type
                 
-                return WorldEvent(year, headline, details, impacts, society_relations, world_metrics)
+                event = WorldEvent(year, headline, details, impacts, society_relations, world_metrics)
+                
+                # Add subheadlines to the event
+                event.subheadlines = subheadlines
+                
+                return event
             
             except json.JSONDecodeError as e:
                 print(f"Failed to parse JSON: {str(e)}")
@@ -716,7 +756,7 @@ class EnhancedGameState:
         
         except Exception as e:
             print(f"Error parsing event: {str(e)}")
-            return None    
+            return None
 
     def update_society_relations(self, event: WorldEvent):
         """Update society relations based on the event's relationship changes"""
@@ -777,9 +817,11 @@ class EnhancedGameState:
             "content": (
                 "Advance the simulation by one time period. Return your response as a JSON object "
                 "There should be no new Policy Propositions in this response. Those are only to be proposed by the user."
-                "with fields for year, headline, details, impacts, society_relations, and world_metrics. "
+                "The factory owners and managers should be trying to convince the blobs that the pollution is not a problem and focus on their own interests. "
+                "with fields for year, headline, subheadlines, details, impacts, society_relations, and world_metrics. "
                 "For society_relations and world_metrics, include how they change "
                 "(big_decrease, decrease, none, increase, or big_increase) based on the events."
+                "IMPORTANT: Return your response as a JSON object"
             )
         }
         self.message_history.append(format_reminder)
@@ -788,7 +830,8 @@ class EnhancedGameState:
         resp_text = OpenAIClient.ask_gpt(
             self.message_history, 
             temperature=temperature, 
-            frequency_penalty=0.3
+            frequency_penalty=0.3,
+            return_json=True
         )
         
         # Add response to message history
@@ -874,12 +917,13 @@ class EnhancedGameState:
                 f"POLICY PROPOSITION: {proposal}\n\n"
                 f"The lawmaker proposes a new policy to be enacted in the blob world. "
                 f"How does this affect the world of blobs? Return your response as a JSON object "
-                f"with fields for year, headline, details, impacts, society_relations, and world_metrics."
+                f"with fields for year, headline, details, subheadlines (5 fun, quirky headlines), "
+                f"impacts, society_relations, and world_metrics."
             )
         })
         
         # Get response
-        resp_text = OpenAIClient.ask_gpt(self.message_history, temperature=temperature)
+        resp_text = OpenAIClient.ask_gpt(self.message_history, temperature=temperature, return_json=True)
         self.message_history.append({"role": "assistant", "content": resp_text})
         
         # Parse the event
@@ -1041,8 +1085,8 @@ if __name__ == "__main__":
     # Example usage
     game_state = EnhancedGameState()
     
-    # Initialize with 5 blobs and personalities
-    print("Initializing game with 5 blobs...")
+    # Initialize with 10 blobs and personalities
+    print("Initializing game with 10 blobs...")
     game_state.initialize_with_personalities(10)
     
     # Simple game loop
@@ -1057,21 +1101,47 @@ if __name__ == "__main__":
             print("\nRunning next iteration...")
             event = game_state.run_iteration(create_image=False)
             if event:
-                print(f"\nEvent: {event.headline}")
+                print(f"\nMain Event: {event.headline}")
                 print(f"Details: {event.details}")
-                print("Impacts:")
+                
+                #display all subheadlines
+                print("\nSubheadlines:")
+                for i, headline in enumerate(event.subheadlines):
+                    print(f"{i+1}. {headline}")
+                
+                print("\nImpacts:")
                 for blob_id, impact in event.impacts.items():
                     print(f"- Blob {blob_id}: {impact}")
-                print("Society Relations:")
+                
+                print("\nSociety Relations:")
                 for relation_key, change in event.society_relations.items():
                     print(f"- {relation_key}: {change}")
+                
+                print("\nWorld Metrics:")
+                for metric_name, change in event.world_metrics.items():
+                    print(f"- {metric_name}: {change}")
+                
+                # Show all subheadlines
+                if event.subheadlines:
+                    print("\nAll Subheadlines:")
+                    for i, headline in enumerate(event.subheadlines):
+                        print(f"{i+1}. {headline}")
         
         elif user_input.lower().startswith('p '):
             proposal_text = user_input[2:].strip()
             if proposal_text:
                 print(f"\nSubmitting policy proposition: {proposal_text}")
                 result = game_state.policy_proposition(proposal_text, create_image=False)
-                print(f"Result: {result}")
+                event = game_state.world_events[-1] if game_state.world_events else None
+                
+                if event:
+                    print(f"\nMain Event: {event.headline}")
+                    print(f"Details: {event.details}")
+                    
+                    # Display a random subheadline
+                    if event.subheadlines:
+                        random_subheadline = random.choice(event.subheadlines)
+                        print(f"\nIn Other News: {random_subheadline}")
             else:
                 print("Please provide policy text after 'p'")
         
@@ -1085,5 +1155,17 @@ if __name__ == "__main__":
             relations = game_state.get_society_relations_report()
             print(f"Relations: {relations}")
         
+        elif user_input.lower() == 'subheadlines':
+            if game_state.world_events:
+                latest_event = game_state.world_events[-1]
+                if latest_event.subheadlines:
+                    print("\nLatest Event Subheadlines:")
+                    for i, headline in enumerate(latest_event.subheadlines):
+                        print(f"{i+1}. {headline}")
+                else:
+                    print("No subheadlines available for the latest event.")
+            else:
+                print("No events have occurred yet.")
+        
         else:
-            print("Invalid input. Enter 's' to skip, 'p [text]' to propose, 'status' for world status, 'relations' for society relations, or 'q' to quit.")
+            print("Invalid input. Enter 's' to skip, 'p [text]' to propose, 'status' for world status, 'relations' for society relations, 'subheadlines' to see all subheadlines, or 'q' to quit.")

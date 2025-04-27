@@ -39,6 +39,8 @@ class SocietyResponse(BaseModel):
 class EventResponse(BaseModel):
     year: int
     headline: str
+    subheadlines: List[str]
+    headline_metric: str
     details: str
     impacts: Dict[str, str]
     image_url: Optional[str]
@@ -135,6 +137,8 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
             "event": {
                 "year": event.year,
                 "headline": event.headline,
+                "subheadlines": event.subheadlines,
+                "headline_metrics": event.metrics_headline,
                 "details": event.details,
                 "impacts": event.impacts,
                 "image_url": event.image_url
@@ -142,6 +146,18 @@ async def run_iteration(temperature: float = Query(0.7, ge=0.0, le=1.0), create_
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to run iteration: {str(e)}")
+
+@app.get("/world_metrics", tags=["Information"], response_model=Dict[str, Any])
+async def get_world_metrics():
+    """Get the current world metrics."""
+    if not game_state.blobs:
+        raise HTTPException(status_code=400, detail="Game not initialized. Call /initialize first.")
+    
+    try:
+        metrics = game_state.get_metrics()
+        return metrics
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get world metrics: {str(e)}")
 
 @app.post("/propose_policy", tags=["Simulation Control"], response_model=Dict[str, Any])
 async def propose_policy(request: PolicyRequest):
@@ -155,7 +171,8 @@ async def propose_policy(request: PolicyRequest):
     try:
         result = game_state.policy_proposition(
             proposal=request.proposal,
-            temperature=request.temperature
+            temperature=request.temperature,
+            create_image=False
         )
         
         # Get current metrics
@@ -167,6 +184,8 @@ async def propose_policy(request: PolicyRequest):
             event_data = {
                 "year": event.year,
                 "headline": event.headline,
+                "subheadlines": event.subheadlines,
+                "headline_metrics": event.metrics_headline,
                 "details": event.details,
                 "impacts": event.impacts,
                 "image_url": event.image_url
@@ -176,7 +195,7 @@ async def propose_policy(request: PolicyRequest):
         
         return {
             "status": "Policy proposition processed",
-            "result": result,
+            #"result": result,
             "current_year": game_state.current_year,
             "metrics": metrics,  # Include world metrics
             "event": event_data
@@ -249,6 +268,7 @@ async def get_events():
         EventResponse(
             year=event.year,
             headline=event.headline,
+            headline_metric=event.metrics_headline,
             details=event.details,
             impacts={str(blob_id): impact for blob_id, impact in event.impacts.items()},
             image_url=event.image_url

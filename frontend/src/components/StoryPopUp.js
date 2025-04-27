@@ -9,12 +9,12 @@ export default function StoryPopup({ open, onClose, story }) {
         <IconButton
           aria-label="close"
           onClick={onClose}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
+          sx={{ position: 'absolute', right: 8, top: 8, width:"1vh", height:"1vh"}}
         >
           <CloseIcon />
         </IconButton>
       </DialogTitle>
-      <DialogContent dividers>
+      <DialogContent dividers  style={{minWidth:"20vw", minHeight:"30vh"}}>
         <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
           {story}
         </Typography>
