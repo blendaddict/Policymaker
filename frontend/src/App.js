@@ -234,7 +234,7 @@ function App() {
         )}
 
         <HeadlineTicker headlines={Array(100).fill(headlines).flat()} />
-
+        <SortingDropdown callback={sortBlobsByCriterion} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-evenly", width: "50%" }}>
           <Button
             variant="outlined"
