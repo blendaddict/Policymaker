@@ -5,7 +5,7 @@ import { Blob, floorLevel } from './components/Blob';
 import { Platform } from './components/Platform';
 import { OrbitControls, Html, Text } from '@react-three/drei';
 import { ImportedMesh } from './components/ImportedMesh';
-import { initialize } from './api';
+import { initialize, getBlobInformation } from './api';
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -16,6 +16,8 @@ import { IconButton } from '@mui/material';
 import { useThree,useFrame  } from '@react-three/fiber'
 import { useControls } from '@react-three/drei'
 import StoryPopup from './components/StoryPopUp'
+import { SortingDropdown } from './components/SortingDropdown'
+import { sortBlobs } from './sortBlobs'
 
 const metrics = {
   happiness: 40,
@@ -88,6 +90,10 @@ function App() {
   const generateRandomPosition = () => {
     return [Math.random() * 4.0 - 2.0, floorLevel, Math.random() * 4.0 - 2.0];
   };
+
+  function sortBlobsByCriterion(category) {
+    getBlobInformation().then(b =>sortBlobs(b, blobRefs, category))
+  }
   
   const [color, setColor] = useState("white");
   const [goal, setGoal] = useState("Reduce trash in the environment");
@@ -142,7 +148,7 @@ function App() {
         <Canvas
           
           camera={{ position: [-0.0, 7.3156, 7.0145], fov: 50 }}
-          style={{ width: "100%", height: "65vh", overflow: "hidden" }}
+          style={{ width: "100%", height: "61vh", overflow: "hidden" }}
         > 
         {/* <LogCamera/> */}
           <Html
@@ -210,6 +216,7 @@ function App() {
 <HeadlineTicker headlines={ Array.from({ length: 100 })
   .map(() => headlines)
   .flat()} />
+        <SortingDropdown callback={sortBlobsByCriterion} />
         <div
           style={{
             display: "flex",
